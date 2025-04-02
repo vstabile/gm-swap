@@ -1,0 +1,44 @@
+{
+  "name": "sm-swap",
+  "version": "0.0.0",
+  "description": "",
+  "type": "module",
+  "scripts": {
+    "start": "vite",
+    "dev": "vite",
+    "build": "vite build",
+    "serve": "vite preview"
+  },
+  "license": "MIT",
+  "devDependencies": {
+    "@types/node": "^22.13.17",
+    "autoprefixer": "^10.4.21",
+    "postcss": "^8.5.3",
+    "tailwindcss": "3",
+    "typescript": "^5.7.2",
+    "vite": "^6.0.0",
+    "vite-plugin-solid": "^2.11.6"
+  },
+  "dependencies": {
+    "@kobalte/core": "^0.13.9",
+    "@modular-forms/solid": "^0.25.1",
+    "@noble/curves": "^1.8.1",
+    "@noble/hashes": "^1.7.1",
+    "applesauce-accounts": "^0.12.0",
+    "applesauce-actions": "^0.12.0",
+    "applesauce-core": "^0.12.1",
+    "applesauce-factory": "^0.12.2",
+    "applesauce-loaders": "^0.12.0",
+    "applesauce-signers": "^0.12.0",
+    "class-variance-authority": "^0.7.1",
+    "clsx": "^2.1.1",
+    "lucide-solid": "^0.487.0",
+    "nostr-tools": "^2.11.1",
+    "rx-nostr": "^3.5.0",
+    "rxjs": "^7.8.2",
+    "solid-js": "^1.9.5",
+    "tailwind-merge": "^3.0.2",
+    "tailwindcss-animate": "^1.0.7",
+    "zod": "^3.24.2"
+  }
+}
