@@ -87,7 +87,7 @@ The proposer sends a new event containing the adaptor signature(s) after receivi
     {
       sa: "<adaptor signature>",
       Rx: "<x-coordinate of the public nonce>",
-      Tx: "<x-coordinate of the adaptor point>"
+      Rax: "<x-coordinate of the adaptor point>"
     },
     ...
   ],

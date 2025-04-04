@@ -221,7 +221,11 @@ const App: Component = () => {
       <div class="flex flex-col justify-center py-6 text-sm text-gray-500 items-center">
         <p>
           This is a proof of concept for{" "}
-          <a href="#" target="_blank" class="mx-1 text-blue-500">
+          <a
+            href="https://github.com/vstabile/nips/blob/atomic-signature-swaps/XX.md"
+            target="_blank"
+            class="mx-1 text-blue-500"
+          >
             NIP-XX: Atomic Signature Swaps
           </a>
         </p>
