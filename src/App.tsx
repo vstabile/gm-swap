@@ -218,7 +218,7 @@ const App: Component = () => {
           </div>
         </Show>
       </main>
-      <div class="flex flex-col justify-center py-6 text-sm text-gray-500 items-center">
+      <div class="flex flex-col justify-center py-6 px-4 text-center text-sm text-gray-500 items-center">
         <p>
           This is a proof of concept for{" "}
           <a
