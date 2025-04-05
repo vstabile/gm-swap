@@ -1,11 +1,11 @@
 import { ProjPointType } from "@noble/curves/abstract/weierstrass";
 import { schnorr, secp256k1 as secp } from "@noble/curves/secp256k1";
-import { getEventHash, NostrEvent, verifyEvent } from "nostr-tools";
+import { getEventHash, NostrEvent } from "nostr-tools";
 
 export type Adaptor = {
   sa: string; // The adaptor scalar
-  Rx: string; // The proposer's public nonce
-  Rax: string; // The adaptor public nonce
+  Ra: string; // The adaptor public nonce
+  R: string; // The proposer's public nonce
 };
 
 export function completeSignatures(
@@ -20,7 +20,7 @@ export function completeSignatures(
   const t = BigInt(`0x${secret}`);
 
   let sigs: string[] = [];
-  for (const { sa, Rax } of adaptors) {
+  for (const { sa, Ra } of adaptors) {
     const s_a = BigInt(`0x${sa}`);
     // Completed scalar: s_c = s_a + t
     const s_c = (s_a + t) % secp.CURVE.n;
@@ -28,7 +28,7 @@ export function completeSignatures(
     // Signature is the adaptor nonce (R_a) and the completed scalar (s_c)
     const sig = bytesToHex(
       new Uint8Array([
-        ...hexToBytes(Rax),
+        ...hexToBytes(Ra),
         ...hexToBytes(s_c.toString(16).padStart(64, "0")),
       ])
     );
@@ -74,8 +74,8 @@ export function verifyAdaptors(
   const adaptor = adaptors[0];
 
   const P_p = proposal.pubkey;
-  const R_p = schnorr.utils.lift_x(BigInt("0x" + adaptor.Rx));
-  const R_a_x = adaptor.Rax;
+  const R_p = schnorr.utils.lift_x(BigInt("0x" + adaptor.R));
+  const R_a_x = adaptor.Ra;
   const offerId = getOfferId(proposal);
 
   // Computes the challenge for the request
@@ -195,8 +195,8 @@ export function computeAdaptors(
   return [
     {
       sa: s_a.toString(16).padStart(64, "0"),
-      Rx: bytesToHex(R_p_x),
-      Rax: bytesToHex(R_a_x),
+      R: bytesToHex(R_p_x),
+      Ra: bytesToHex(R_a_x),
     },
   ];
 }

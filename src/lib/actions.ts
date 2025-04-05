@@ -103,12 +103,12 @@ export function AcceptProposal(proposal: NostrEvent): Action {
       kind: KINDS.ACCEPTANCE,
       content: JSON.stringify({
         nonce,
-        encrypted_scalar,
       }),
       created_at,
       tags: [
         ["e", proposal.id],
         ["p", proposal.pubkey],
+        ["enc_s", encrypted_scalar],
       ],
     });
 
@@ -153,7 +153,9 @@ export function PublishOffer(
 ): Action {
   return async function* () {
     const adaptors = JSON.parse(execution.content).adaptors;
-    const encrypted_scalar = JSON.parse(acceptance.content).encrypted_scalar;
+    const encrypted_scalar = acceptance.tags.filter(
+      (t) => t[0] === "enc_s"
+    )[0][1];
 
     // Decrypt the secret stored in the acceptance event
     const secret = await accounts.signer.nip04.decrypt(
