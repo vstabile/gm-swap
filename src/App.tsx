@@ -219,6 +219,16 @@ const App: Component = () => {
         </Show>
       </main>
       <div class="flex flex-col justify-center py-6 px-4 text-center text-sm text-gray-500 items-center">
+        <p class="flex items-center pb-1">
+          <a
+            href="https://github.com/vstabile/gm-swap"
+            target="_blank"
+            class="flex items-center"
+          >
+            <img src="/public/github.svg" alt="GitHub" class="w-4 h-4 mr-2" />{" "}
+            Github
+          </a>
+        </p>
         <p>
           This is a proof of concept for{" "}
           <a
