@@ -7,7 +7,7 @@ import { StatusProps } from "../ProposalStatus";
 import {
   actions,
   ExecuteSwap,
-  PublishRequest,
+  PublishTakenEvent,
   RevokeProposal,
 } from "~/lib/actions";
 import { rxNostr } from "~/lib/nostr";
@@ -39,7 +39,7 @@ export function ProposerStatus(props: StatusProps) {
 
     try {
       await actions
-        .exec(ExecuteSwap, props.acceptance, props.proposal)
+        .exec(ExecuteSwap, props.nonceEvent, props.proposal)
         .forEach((event: NostrEvent) => {
           eventStore.add(event);
           rxNostr.send(event);
@@ -50,17 +50,17 @@ export function ProposerStatus(props: StatusProps) {
     }
   }
 
-  async function publishRequest() {
+  async function publishTakenEvent() {
     setIsPublishing(true);
 
     try {
       await actions
         .exec(
-          PublishRequest,
+          PublishTakenEvent,
           props.proposal,
-          props.acceptance,
-          props.execution,
-          props.offer
+          props.nonceEvent,
+          props.adaptorEvent,
+          props.give
         )
         .forEach((event: NostrEvent) => {
           eventStore.add(event);
@@ -74,9 +74,9 @@ export function ProposerStatus(props: StatusProps) {
 
   return (
     <>
-      <Show when={!props.acceptance}>
+      <Show when={!props.nonceEvent}>
         <div class="flex items-center text-white bg-yellow-500 px-2 py-1 rounded-md h-7 text-xs">
-          <LucideHourglass class="w-3 h-3 mr-1" /> Pending acceptance
+          <LucideHourglass class="w-3 h-3 mr-1" /> Pending nonce
           {isRevoking() ? (
             <LucideLoader class="w-3 h-3 ml-1 animate-spin" />
           ) : (
@@ -87,7 +87,7 @@ export function ProposerStatus(props: StatusProps) {
           )}
         </div>
       </Show>
-      <Show when={!props.execution && props.acceptance}>
+      <Show when={!props.adaptorEvent && props.nonceEvent}>
         <Show when={!isExecuting() && !isRevoking()}>
           <button class="text-red-600 px-2 py-1 mr-1" onClick={revokeProposal}>
             Revoke
@@ -128,25 +128,23 @@ export function ProposerStatus(props: StatusProps) {
         </Show>
       </Show>
 
-      <Show when={!props.request && !props.offer && props.execution}>
+      <Show when={!props.take && !props.give && props.adaptorEvent}>
         <div class="flex items-center text-white bg-sky-500 px-2 py-1 rounded-md h-7 text-xs">
           <LucideHourglass class="w-3 h-3 mr-1" /> Waiting counterparty to
           publish
         </div>
       </Show>
-      <Show when={!props.request && props.offer}>
-        <Button size="sm" onClick={publishRequest} disabled={isPublishing()}>
+      <Show when={!props.take && props.give}>
+        <Button size="sm" onClick={publishTakenEvent} disabled={isPublishing()}>
           <Show when={isPublishing()} fallback="Publish GM">
             <LucideLoader class="w-4 h-4 animate-spin" />
             Publishing
           </Show>
         </Button>
       </Show>
-      <Show when={props.request}>
+      <Show when={props.take}>
         <a
-          href={
-            "https://njump.me/" + nip19.neventEncode({ id: props.request.id })
-          }
+          href={"https://njump.me/" + nip19.neventEncode({ id: props.take.id })}
           class="flex text-primary flex-row justify-center w-full h-7 items-center"
           target="_blank"
         >

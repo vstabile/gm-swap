@@ -15,7 +15,7 @@ rxNostr.setDefaultRelays([
 
 export const KINDS = {
   PROPOSAL: 455,
-  ACCEPTANCE: 456,
-  EXECUTION: 457,
+  NONCE: 456,
+  ADAPTOR: 457,
   DELETION: 5,
 };

@@ -3,10 +3,10 @@ import { createRxForwardReq } from "rx-nostr";
 import { createEffect, createMemo, from, Show } from "solid-js";
 import { KINDS, rxNostr } from "~/lib/nostr";
 import {
-  AcceptanceQuery,
+  SwapNonceQuery,
   eventStore,
   queryStore,
-  SwapExecutionQuery,
+  SwapAdaptorQuery,
 } from "~/lib/stores";
 import { ProposerStatus } from "./ProposalStatus/ProposerStatus";
 import { CounterypartyStatus } from "./ProposalStatus/CounterpartyStatus";
@@ -14,10 +14,10 @@ import { accounts } from "~/lib/accounts";
 
 export type StatusProps = {
   proposal: NostrEvent;
-  acceptance: NostrEvent | undefined;
-  execution: NostrEvent | undefined;
-  offer: NostrEvent | undefined;
-  request: NostrEvent | undefined;
+  nonceEvent: NostrEvent | undefined;
+  adaptorEvent: NostrEvent | undefined;
+  give: NostrEvent | undefined;
+  take: NostrEvent | undefined;
 };
 
 export default function ProposalStatus(props: { proposal: NostrEvent }) {
@@ -32,62 +32,62 @@ export default function ProposalStatus(props: { proposal: NostrEvent }) {
 
     rxReq.emit([
       {
-        kinds: [KINDS.ACCEPTANCE],
+        kinds: [KINDS.NONCE],
         "#e": [props.proposal.id],
       },
       {
-        kinds: [KINDS.EXECUTION],
+        kinds: [KINDS.ADAPTOR],
         "#E": [props.proposal.id],
       },
       {
-        ids: [offerId(), requestId()],
+        ids: [giveId(), takeId()],
       },
     ]);
   });
 
-  const offerId = createMemo(() => {
+  const giveId = createMemo(() => {
     return getEventHash({
       pubkey: props.proposal.pubkey,
-      ...JSON.parse(props.proposal.content)["offer"]["template"],
+      ...JSON.parse(props.proposal.content)["give"]["template"],
     });
   });
 
-  const requestId = createMemo(() => {
+  const takeId = createMemo(() => {
     return getEventHash({
       pubkey: props.proposal.tags.filter((t) => t[0] === "p")[0][1],
-      ...JSON.parse(props.proposal.content)["request"]["template"],
+      ...JSON.parse(props.proposal.content)["take"]["template"],
     });
   });
 
-  const acceptance = from(
-    queryStore.createQuery(AcceptanceQuery, props.proposal)
+  const nonceEvent = from(
+    queryStore.createQuery(SwapNonceQuery, props.proposal)
   );
 
-  const execution = from(
-    queryStore.createQuery(SwapExecutionQuery, props.proposal)
+  const adaptorEvent = from(
+    queryStore.createQuery(SwapAdaptorQuery, props.proposal)
   );
 
-  const offer = from(queryStore.event(offerId()));
-  const request = from(queryStore.event(requestId()));
+  const give = from(queryStore.event(giveId()));
+  const take = from(queryStore.event(takeId()));
 
   return (
     <>
       <Show when={props.proposal.pubkey === account()!.pubkey}>
         <ProposerStatus
           proposal={props.proposal}
-          acceptance={acceptance()}
-          execution={execution()}
-          offer={offer()}
-          request={request()}
+          nonceEvent={nonceEvent()}
+          adaptorEvent={adaptorEvent()}
+          give={give()}
+          take={take()}
         />
       </Show>
       <Show when={props.proposal.pubkey !== account()!.pubkey}>
         <CounterypartyStatus
           proposal={props.proposal}
-          acceptance={acceptance()}
-          execution={execution()}
-          offer={offer()}
-          request={request()}
+          nonceEvent={nonceEvent()}
+          adaptorEvent={adaptorEvent()}
+          give={give()}
+          take={take()}
         />
       </Show>
     </>

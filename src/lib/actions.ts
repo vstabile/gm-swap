@@ -3,13 +3,7 @@ import { Action, ActionHub } from "applesauce-actions";
 import { eventStore, userStore } from "./stores";
 import { accounts } from "./accounts";
 import { KINDS } from "./nostr";
-import {
-  EventTemplate,
-  getEventHash,
-  nip04,
-  NostrEvent,
-  verifyEvent,
-} from "nostr-tools";
+import { EventTemplate, getEventHash, NostrEvent } from "nostr-tools";
 import { from } from "solid-js";
 import { completeSignatures, computeAdaptors, extractSignature } from "./ass";
 
@@ -36,8 +30,8 @@ type CashuSignatureTemplate = {
 export type SignatureTemplate = NostrSignatureTemplate | CashuSignatureTemplate;
 
 export type Proposal = {
-  offer: SignatureTemplate;
-  request: SignatureTemplate;
+  give: SignatureTemplate;
+  take: SignatureTemplate;
   listing?: string;
   description?: string;
 };
@@ -65,7 +59,7 @@ export function RevokeProposal(proposalId: string) {
 
     const draft = await factory.build({
       kind: KINDS.DELETION,
-      content: "Proposal revoked",
+      content: "Revoked",
       created_at,
       tags: [
         ["e", proposalId],
@@ -77,7 +71,7 @@ export function RevokeProposal(proposalId: string) {
   };
 }
 
-// Accepts a proposal by creating a new Swap Acceptance event
+// Accepts a proposal by creating a new Swap Nonce event
 export function AcceptProposal(proposal: NostrEvent): Action {
   return async function* ({ factory }) {
     const account = from(accounts.active$);
@@ -87,12 +81,10 @@ export function AcceptProposal(proposal: NostrEvent): Action {
 
     const myEvent = {
       pubkey: account()!.pubkey,
-      ...proposalContent["request"]["template"],
+      ...proposalContent["take"]["template"],
     };
 
     const signedEvent = await accounts.signer.signEvent(myEvent);
-    console.log("pre-signed Event", signedEvent);
-    console.log("pre-signed Event is valid", verifyEvent(signedEvent));
     const nonce = signedEvent.sig.slice(0, 64);
     const encrypted_scalar = await accounts.signer.nip04.encrypt(
       account()!.pubkey,
@@ -100,7 +92,7 @@ export function AcceptProposal(proposal: NostrEvent): Action {
     );
 
     const draft = await factory.build({
-      kind: KINDS.ACCEPTANCE,
+      kind: KINDS.NONCE,
       content: JSON.stringify({
         nonce,
       }),
@@ -116,29 +108,29 @@ export function AcceptProposal(proposal: NostrEvent): Action {
   };
 }
 
-// Executes a swap by creating a new Swap Execution event
+// Executes a swap by creating a new Swap Adaptor event
 export function ExecuteSwap(
-  acceptance: NostrEvent,
+  nonceEvent: NostrEvent,
   proposal: NostrEvent
 ): Action {
   return async function* ({ factory }) {
     const created_at = Math.floor(Date.now() / 1000);
 
-    const proposalId = acceptance.tags.filter((t) => t[0] === "e")[0][1];
-    const nonce = JSON.parse(acceptance.content).nonce;
+    const proposalId = nonceEvent.tags.filter((t) => t[0] === "e")[0][1];
+    const nonce = JSON.parse(nonceEvent.content).nonce;
 
     const content = {
       adaptors: computeAdaptors(proposal, nonce, userStore.getKey()),
     };
 
     const draft = await factory.build({
-      kind: KINDS.EXECUTION,
+      kind: KINDS.ADAPTOR,
       content: JSON.stringify(content),
       created_at,
       tags: [
         ["E", proposalId],
-        ["e", acceptance.id],
-        ["p", acceptance.pubkey],
+        ["e", nonceEvent.id],
+        ["p", nonceEvent.pubkey],
       ],
     });
 
@@ -146,62 +138,60 @@ export function ExecuteSwap(
   };
 }
 
-export function PublishOffer(
+export function PublishGivenEvent(
   proposal: NostrEvent,
-  acceptance: NostrEvent,
-  execution: NostrEvent
+  nonceEvent: NostrEvent,
+  adaptorEvent: NostrEvent
 ): Action {
   return async function* () {
-    const adaptors = JSON.parse(execution.content).adaptors;
-    const encrypted_scalar = acceptance.tags.filter(
+    const adaptors = JSON.parse(adaptorEvent.content).adaptors;
+    const encrypted_scalar = nonceEvent.tags.filter(
       (t) => t[0] === "enc_s"
     )[0][1];
 
-    // Decrypt the secret stored in the acceptance event
+    // Decrypt the secret stored in the nonceEvent event
     const secret = await accounts.signer.nip04.decrypt(
-      acceptance.pubkey,
+      nonceEvent.pubkey,
       encrypted_scalar
     );
 
     const sigs = completeSignatures(proposal, adaptors, secret);
 
-    const offerTemplate = {
+    const giveTemplate = {
       pubkey: proposal.pubkey,
-      ...JSON.parse(proposal.content)["offer"]["template"],
+      ...JSON.parse(proposal.content)["give"]["template"],
     };
 
-    const offerEvent: NostrEvent = {
-      id: getEventHash(offerTemplate),
-      ...offerTemplate,
+    const giveEvent: NostrEvent = {
+      id: getEventHash(giveTemplate),
+      ...giveTemplate,
       sig: sigs[0],
     };
 
-    console.log("offerEvent", offerEvent);
-
-    yield offerEvent;
+    yield giveEvent;
   };
 }
 
-export function PublishRequest(
+export function PublishTakenEvent(
   proposal: NostrEvent,
-  acceptance: NostrEvent,
-  execution: NostrEvent,
-  offer: NostrEvent
+  nonceEvent: NostrEvent,
+  adaptorEvent: NostrEvent,
+  give: NostrEvent
 ): Action {
   return async function* () {
-    const sig = extractSignature(acceptance, execution, offer);
+    const sig = extractSignature(nonceEvent, adaptorEvent, give);
 
-    const requestTemplate = {
-      pubkey: acceptance.pubkey,
-      ...JSON.parse(proposal.content)["request"]["template"],
+    const takeTemplate = {
+      pubkey: nonceEvent.pubkey,
+      ...JSON.parse(proposal.content)["take"]["template"],
     };
 
-    const requestEvent = {
-      id: getEventHash(requestTemplate),
-      ...requestTemplate,
+    const takeEvent = {
+      id: getEventHash(takeTemplate),
+      ...takeTemplate,
       sig,
     };
 
-    yield requestEvent;
+    yield takeEvent;
   };
 }

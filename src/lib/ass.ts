@@ -4,8 +4,8 @@ import { getEventHash, NostrEvent } from "nostr-tools";
 
 export type Adaptor = {
   sa: string; // The adaptor scalar
-  Ra: string; // The adaptor public nonce
   R: string; // The proposer's public nonce
+  T: string; // The adaptor point
 };
 
 export function completeSignatures(
@@ -20,15 +20,21 @@ export function completeSignatures(
   const t = BigInt(`0x${secret}`);
 
   let sigs: string[] = [];
-  for (const { sa, Ra } of adaptors) {
+  for (const { sa, R, T } of adaptors) {
     const s_a = BigInt(`0x${sa}`);
     // Completed scalar: s_c = s_a + t
     const s_c = (s_a + t) % secp.CURVE.n;
 
+    const R_point = secp.ProjectivePoint.fromHex(R);
+    const T_point = secp.ProjectivePoint.fromHex(T);
+
+    // The adaptor public nonce
+    const Ra = R_point.add(T_point);
+
     // Signature is the adaptor nonce (R_a) and the completed scalar (s_c)
     const sig = bytesToHex(
       new Uint8Array([
-        ...hexToBytes(Ra),
+        ...hexToBytes(Ra.x.toString(16).padStart(64, "0")),
         ...hexToBytes(s_c.toString(16).padStart(64, "0")),
       ])
     );
@@ -40,20 +46,20 @@ export function completeSignatures(
 }
 
 export function extractSignature(
-  acceptance: NostrEvent,
-  execution: NostrEvent,
-  offer: NostrEvent
+  nonceEvent: NostrEvent,
+  adaptorEvent: NostrEvent,
+  give: NostrEvent
 ): string {
-  const s_offer = BigInt(`0x${offer.sig.substring(64)}`);
-  const adaptors = JSON.parse(execution.content).adaptors;
+  const s_give = BigInt(`0x${give.sig.substring(64)}`);
+  const adaptors = JSON.parse(adaptorEvent.content).adaptors;
 
   const s_a = BigInt("0x" + adaptors[0].sa);
-  const t = (s_offer - s_a + secp.CURVE.n) % secp.CURVE.n;
+  const t = (s_give - s_a + secp.CURVE.n) % secp.CURVE.n;
   const secret = t.toString(16).padStart(64, "0");
 
   const sig = bytesToHex(
     new Uint8Array([
-      ...hexToBytes(JSON.parse(acceptance.content).nonce),
+      ...hexToBytes(JSON.parse(nonceEvent.content).nonce),
       ...hexToBytes(secret),
     ])
   );
@@ -65,30 +71,33 @@ export function verifyAdaptors(
   proposal: NostrEvent,
   adaptors: Adaptor[]
 ): boolean {
-  const offerType = getOfferType(proposal);
-  if (offerType !== "nostr") {
-    throw new Error(`Offer type not implemented: ${offerType}`);
+  const giveType = getGivenType(proposal);
+  if (giveType !== "nostr") {
+    throw new Error(`Given type not implemented: ${giveType}`);
   }
 
   // Nostr events require a single adaptor
   const adaptor = adaptors[0];
 
-  const P_p = proposal.pubkey;
-  const R_p = schnorr.utils.lift_x(BigInt("0x" + adaptor.R));
-  const R_a_x = adaptor.Ra;
-  const offerId = getOfferId(proposal);
+  const R_point = secp.ProjectivePoint.fromHex(adaptor.R);
+  const T_point = secp.ProjectivePoint.fromHex(adaptor.T);
+  const Ra = R_point.add(T_point);
 
-  // Computes the challenge for the request
+  const P_p = proposal.pubkey;
+  const R_a_x = Ra.x.toString(16).padStart(64, "0");
+  const giveId = getGivenId(proposal);
+
+  // Computes the challenge for the take
   let challenge = schnorr.utils.taggedHash(
     "BIP0340/challenge",
     new Uint8Array([
       ...hexToBytes(R_a_x),
       ...hexToBytes(P_p),
-      ...hexToBytes(offerId),
+      ...hexToBytes(giveId),
     ])
   );
 
-  const c_offer = BigInt("0x" + bytesToHex(challenge));
+  const c_give = BigInt("0x" + bytesToHex(challenge));
 
   // Verifies each adaptor signature:
   // s_a * G ?= R_p + H(R_p + T || P_p || m) * P_p
@@ -97,13 +106,13 @@ export function verifyAdaptors(
   const s_a = BigInt("0x" + adaptor.sa);
 
   const left = secp.ProjectivePoint.BASE.multiply(s_a);
-  const rightEven = R_p.add(
-    schnorr.utils.lift_x(BigInt("0x" + P_p)).multiply(c_offer)
+  const rightEven = R_point.add(
+    schnorr.utils.lift_x(BigInt("0x" + P_p)).multiply(c_give)
   );
   // Check the case where the proposer's private key is associated with
   // a point on the curve with an odd y-coordinate (BIP340) by negating the challenge
-  const rightOdd = R_p.add(
-    schnorr.utils.lift_x(BigInt("0x" + P_p)).multiply(secp.CURVE.n - c_offer)
+  const rightOdd = R_point.add(
+    schnorr.utils.lift_x(BigInt("0x" + P_p)).multiply(secp.CURVE.n - c_give)
   );
 
   // The adaptor signature is valid if one of the verifications is valid
@@ -119,16 +128,16 @@ export function computeAdaptors(
   nonce: string,
   key: Uint8Array
 ): Adaptor[] {
-  const requestId = getRequestId(proposal);
+  const takeId = getTakenId(proposal);
   const counterparty = proposal.tags.filter((t) => t[0] === "p")[0][1];
-  // Computes the request signature challenge using counterparty's public nonce:
-  // c_request = H(R_s || P_s || m)
-  const c_request = schnorr.utils.taggedHash(
+  // Computes the take signature challenge using counterparty's public nonce:
+  // c_take = H(R_s || P_s || m)
+  const c_take = schnorr.utils.taggedHash(
     "BIP0340/challenge",
     new Uint8Array([
       ...hexToBytes(nonce),
       ...hexToBytes(counterparty),
-      ...hexToBytes(requestId),
+      ...hexToBytes(takeId),
     ])
   );
 
@@ -136,11 +145,11 @@ export function computeAdaptors(
   const R_s = schnorr.utils.lift_x(BigInt("0x" + nonce));
 
   // And computes the adaptor point T as a commitment to the Nostr signature:
-  // T = R_s + c_request * P_s
+  // T = R_s + c_take * P_s
   let T = R_s.add(
     schnorr.utils
       .lift_x(BigInt("0x" + counterparty))
-      .multiply(BigInt("0x" + bytesToHex(c_request)))
+      .multiply(BigInt("0x" + bytesToHex(c_take)))
   );
 
   // Generates a nonce (r_p) and the adaptor public nonce (R_p + T)
@@ -162,24 +171,22 @@ export function computeAdaptors(
 
   // Adaptor nonce X-coordinate
   const R_a_x = hexToBytes(R_a.x.toString(16).padStart(64, "0"));
-  // Proposer's nonce X-coordinate
-  const R_p_x = hexToBytes(R_p.x.toString(16).padStart(64, "0"));
 
-  // Then calculates the offer challenge:
+  // Then calculates the give challenge:
   // H(R + T || P_p || m)
-  const offerId = getOfferId(proposal);
-  const c_offer = schnorr.utils.taggedHash(
+  const giveId = getGivenId(proposal);
+  const c_give = schnorr.utils.taggedHash(
     "BIP0340/challenge",
     new Uint8Array([
       ...R_a_x,
       ...hexToBytes(proposal.pubkey),
-      ...hexToBytes(offerId),
+      ...hexToBytes(giveId),
     ])
   );
 
   // Scalars conversion to BigInt for arithmetic operations
   const r = BigInt(`0x${bytesToHex(r_p)}`) % secp.CURVE.n;
-  let c = BigInt(`0x${bytesToHex(c_offer)}`) % secp.CURVE.n;
+  let c = BigInt(`0x${bytesToHex(c_give)}`) % secp.CURVE.n;
   const k = BigInt(`0x${bytesToHex(key)}`) % secp.CURVE.n;
 
   // The challenge must be negated if the proposer's private key is associated with
@@ -189,43 +196,43 @@ export function computeAdaptors(
     c = secp.CURVE.n - c;
   }
 
-  // Calculates the adaptor scalar: s_a = r_p + c_offer * k_p
+  // Calculates the adaptor scalar: s_a = r_p + c_give * k_p
   const s_a = (r + ((c * k) % secp.CURVE.n)) % secp.CURVE.n;
 
   return [
     {
       sa: s_a.toString(16).padStart(64, "0"),
-      R: bytesToHex(R_p_x),
-      Ra: bytesToHex(R_a_x),
+      R: R_p.toHex(),
+      T: T.toHex(),
     },
   ];
 }
 
 // Helper functions
 
-function getRequestId(proposal: NostrEvent): string {
+function getTakenId(proposal: NostrEvent): string {
   const pubkey = proposal.tags.filter((t) => t[0] === "p")[0][1];
   if (!pubkey) throw new Error("No pubkey found");
 
   const nostrEvent = {
     pubkey,
-    ...JSON.parse(proposal.content)["request"]["template"],
+    ...JSON.parse(proposal.content)["take"]["template"],
   };
 
   return getEventHash(nostrEvent);
 }
 
-function getOfferId(proposal: NostrEvent): string {
+function getGivenId(proposal: NostrEvent): string {
   const nostrEvent = {
     pubkey: proposal.pubkey,
-    ...JSON.parse(proposal.content)["offer"]["template"],
+    ...JSON.parse(proposal.content)["give"]["template"],
   };
 
   return getEventHash(nostrEvent);
 }
 
-function getOfferType(proposal: NostrEvent): string {
-  return JSON.parse(proposal.content)["offer"]["type"];
+function getGivenType(proposal: NostrEvent): string {
+  return JSON.parse(proposal.content)["give"]["type"];
 }
 
 function hexToBytes(hex: string): Uint8Array {

@@ -1,9 +1,9 @@
 import { LucideHourglass, LucideLoader } from "lucide-solid";
 import { createSignal, Show } from "solid-js";
 import { StatusProps } from "../ProposalStatus";
-import { AcceptProposal, actions, PublishOffer } from "~/lib/actions";
+import { AcceptProposal, actions, PublishGivenEvent } from "~/lib/actions";
 import { eventStore } from "~/lib/stores";
-import { nip19, NostrEvent, verifyEvent } from "nostr-tools";
+import { nip19, NostrEvent } from "nostr-tools";
 import { rxNostr } from "~/lib/nostr";
 import { Button } from "../ui/button";
 
@@ -41,12 +41,17 @@ export function CounterypartyStatus(props: StatusProps) {
     setTimeout(() => setIsRejecting(false), 1000);
   }
 
-  async function publishOffer() {
+  async function publishGivenEvent() {
     setIsPublishing(true);
 
     try {
       await actions
-        .exec(PublishOffer, props.proposal, props.acceptance, props.execution)
+        .exec(
+          PublishGivenEvent,
+          props.proposal,
+          props.nonceEvent,
+          props.adaptorEvent
+        )
         .forEach((event: NostrEvent) => {
           eventStore.add(event);
           rxNostr.send(event);
@@ -59,7 +64,7 @@ export function CounterypartyStatus(props: StatusProps) {
 
   return (
     <>
-      <Show when={!props.execution && !props.acceptance}>
+      <Show when={!props.adaptorEvent && !props.nonceEvent}>
         <div class="flex flex-row justify-center w-full h-7 items-center">
           <Show when={!isAccepting() && !isRejecting()}>
             <button
@@ -89,25 +94,23 @@ export function CounterypartyStatus(props: StatusProps) {
           </Show>
         </div>
       </Show>
-      <Show when={!props.execution && props.acceptance}>
+      <Show when={!props.adaptorEvent && props.nonceEvent}>
         <div class="flex items-center text-white bg-yellow-500 px-2 py-1 rounded-md h-7 text-xs">
           <LucideHourglass class="w-3 h-3 mr-1" /> Pending signature
         </div>
       </Show>
 
-      <Show when={!props.offer && props.execution}>
-        <Button size="sm" onClick={publishOffer} disabled={isPublishing()}>
+      <Show when={!props.give && props.adaptorEvent}>
+        <Button size="sm" onClick={publishGivenEvent} disabled={isPublishing()}>
           <Show when={isPublishing()} fallback="Publish GM">
             <LucideLoader class="w-4 h-4 animate-spin" />
             Publishing
           </Show>
         </Button>
       </Show>
-      <Show when={props.offer}>
+      <Show when={props.give}>
         <a
-          href={
-            "https://njump.me/" + nip19.neventEncode({ id: props.offer.id })
-          }
+          href={"https://njump.me/" + nip19.neventEncode({ id: props.give.id })}
           class="flex text-primary flex-row justify-center w-full h-7 items-center"
           target="_blank"
         >

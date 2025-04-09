@@ -35,7 +35,7 @@ export default function CreateProposal() {
     const created_at = Math.floor(Date.now() / 1000) + 60 * 10; // 10 minutes from now
 
     return {
-      offer: {
+      give: {
         type: "nostr" as const,
         template: {
           kind: 1,
@@ -44,7 +44,7 @@ export default function CreateProposal() {
           created_at,
         },
       },
-      request: {
+      take: {
         type: "nostr" as const,
         template: {
           kind: 1,

@@ -4,27 +4,27 @@ import { Proposal } from "~/lib/actions";
 
 export default function ProposalPreview(props: { proposal: Proposal }) {
   if (
-    props.proposal.request.type !== "nostr" ||
-    props.proposal.offer.type !== "nostr"
+    props.proposal.take.type !== "nostr" ||
+    props.proposal.give.type !== "nostr"
   ) {
     return <div>Invalid proposal</div>;
   }
 
-  const recipient = props.proposal.offer.template.tags.find(
+  const recipient = props.proposal.give.template.tags.find(
     (t) => t[0] === "p"
   )?.[1];
-  const proposer = props.proposal.request.template.tags.find(
+  const proposer = props.proposal.take.template.tags.find(
     (t) => t[0] === "p"
   )?.[1];
 
   return (
     <div class="flex flex-col xl:flex-row gap-2 w-full justify-center items-center">
-      <PreviewCard note={props.proposal.request.template} pubkey={recipient} />
+      <PreviewCard note={props.proposal.take.template} pubkey={recipient} />
       <div class="flex items-center justify-center">
         <LucideArrowUpDown class="w-5 h-5 xl:hidden" />
         <LucideArrowRightLeft class="w-5 h-5 hidden xl:block" />
       </div>
-      <PreviewCard note={props.proposal.offer.template} pubkey={proposer} />
+      <PreviewCard note={props.proposal.give.template} pubkey={proposer} />
     </div>
   );
 }

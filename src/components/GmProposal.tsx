@@ -13,12 +13,12 @@ function isGM(content: string): boolean {
   return gmPattern.test(content);
 }
 
-function signatureType(offer: SignatureTemplate) {
-  if (offer["type"] === "nostr" && isGM(offer["template"].content)) {
+function signatureType(give: SignatureTemplate) {
+  if (give["type"] === "nostr" && isGM(give["template"].content)) {
     return "GM";
-  } else if (offer["type"] === "nostr") {
+  } else if (give["type"] === "nostr") {
     return "Event";
-  } else if (offer["type"] === "cashu") {
+  } else if (give["type"] === "cashu") {
     return "Cashu";
   } else {
     return "?";
@@ -29,8 +29,8 @@ export default function GmProposal(props: { proposal: NostrEvent }) {
   const proposer = props.proposal.pubkey;
   const counterparty = props.proposal.tags.find((t) => t[0] === "p")?.[1];
   const content = JSON.parse(props.proposal.content);
-  const offer = content["offer"];
-  const request = content["request"];
+  const give = content["give"];
+  const take = content["take"];
 
   createEffect(() => {
     // Load proposer profile
@@ -59,7 +59,7 @@ export default function GmProposal(props: { proposal: NostrEvent }) {
       </div>
       {/* Swap */}
       <div class="flex flex-row justify-between">
-        {/* Offer */}
+        {/* Give */}
         <div class="flex w-full justify-start">
           <div class="flex flex-row items-center">
             <img
@@ -79,12 +79,12 @@ export default function GmProposal(props: { proposal: NostrEvent }) {
         {/* For */}
         <div class="flex flex-col text-center px-2">
           <div class="flex flex-row items-center justify-center">
-            <span class="font-bold">{signatureType(offer)}</span>
+            <span class="font-bold">{signatureType(give)}</span>
             <span class="text-gray-400 mx-2">for</span>
-            <span class="font-bold">{signatureType(request)}</span>
+            <span class="font-bold">{signatureType(take)}</span>
           </div>
         </div>
-        {/* Request */}
+        {/* Take */}
         <div class="flex w-full justify-end">
           <div class="flex flex-row items-center">
             <span class="text-gray-400 mr-1">from</span>

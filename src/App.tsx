@@ -225,8 +225,7 @@ const App: Component = () => {
             target="_blank"
             class="flex items-center"
           >
-            <img src="/public/github.svg" alt="GitHub" class="w-4 h-4 mr-2" />{" "}
-            Github
+            <img src="/github.svg" alt="GitHub" class="w-4 h-4 mr-2" /> Github
           </a>
         </p>
         <p>
