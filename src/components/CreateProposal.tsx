@@ -73,7 +73,7 @@ export default function CreateProposal() {
   return (
     <>
       <NpubInput npub={npub()} onChange={(value) => setNpub(value)} />
-      <Show when={pubkey()}>
+      <Show when={pubkey() && npub() !== myNpub()}>
         <div class="flex mt-4 w-full">
           <ProposalPreview proposal={proposal()} />
         </div>
@@ -90,6 +90,11 @@ export default function CreateProposal() {
       <Show when={npub() && !pubkey()}>
         <div class="mt-4 w-full text-center text-sm text-red-600">
           <p>This npub is not valid...</p>
+        </div>
+      </Show>
+      <Show when={npub() === myNpub()}>
+        <div class="mt-4 w-full text-center text-sm text-red-600">
+          <p>You should exchange GMs with others...</p>
         </div>
       </Show>
     </>

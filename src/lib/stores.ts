@@ -89,7 +89,6 @@ function deepVerifyEvent(event: NostrEvent): event is VerifiedEvent {
 
     return true;
   } catch (error) {
-    console.error("Deep verification failed:", error);
     return false;
   }
 }

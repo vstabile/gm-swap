@@ -58,6 +58,7 @@ const App: Component = () => {
   };
 
   const signinWithNsec = async () => {
+    if (!nsecIsValid()) return;
     if (accounts.active) return;
 
     const signer = new SimpleSigner(userStore.getKey() || key());
@@ -75,6 +76,17 @@ const App: Component = () => {
 
     setNsec("");
   };
+
+  const nsecIsValid = createMemo(() => {
+    if (!nsec()) return false;
+
+    try {
+      const decoded = nip19.decode(nsec());
+      return decoded.type === "nsec";
+    } catch {
+      return false;
+    }
+  });
 
   const proposalsSent = from(
     accounts.active$.pipe(
@@ -175,12 +187,13 @@ const App: Component = () => {
                   type="text"
                   class="bg-white h-6"
                   placeholder="nsec1..."
-                  onChange={(e) => setNsec(e.target.value)}
+                  onInput={(e) => setNsec((e.target as HTMLInputElement).value)}
                 />
               </TextField>
               <Button
                 class="rounded-md h-6 px-2 text-xs"
                 onClick={signinWithNsec}
+                disabled={!nsecIsValid()}
               >
                 Sign In
               </Button>
