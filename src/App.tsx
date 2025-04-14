@@ -12,8 +12,16 @@ import {
 import Navbar from "./components/Navbar";
 import GmProposal from "./components/GmProposal";
 import { accounts } from "./lib/accounts";
-import { ExtensionSigner, SimpleSigner } from "applesauce-signers";
-import { ExtensionAccount, SimpleAccount } from "applesauce-accounts/accounts";
+import {
+  ExtensionSigner,
+  NostrConnectSigner,
+  SimpleSigner,
+} from "applesauce-signers";
+import {
+  ExtensionAccount,
+  NostrConnectAccount,
+  SimpleAccount,
+} from "applesauce-accounts/accounts";
 import { Button } from "./components/ui/button";
 import { createRxForwardReq } from "rx-nostr";
 import { KINDS, rxNostr } from "./lib/nostr";
@@ -23,6 +31,7 @@ import { of, switchMap } from "rxjs";
 import { TextField, TextFieldInput } from "./components/ui/text-field";
 import { nip19 } from "nostr-tools";
 import { bytesToHex } from "@noble/hashes/utils";
+import { connectionUriSchema } from "~/schema";
 
 const App: Component = () => {
   const account = from(accounts.active$);
@@ -41,6 +50,34 @@ const App: Component = () => {
     }
   });
 
+  const nsecIsValid = createMemo(() => {
+    if (!nsec()) return false;
+
+    try {
+      const decoded = nip19.decode(nsec());
+      return decoded.type === "nsec";
+    } catch {
+      return false;
+    }
+  });
+
+  const bunkerUri = createMemo(() => {
+    return `bunker://${userStore.user()?.pubkey}`;
+  });
+
+  const bunkerUriIsValid = createMemo(() => {
+    if (!bunkerUri()) return false;
+    try {
+      const result = connectionUriSchema.safeParse({
+        type: bunkerUri().startsWith("bunker:") ? "bunker" : "nostrconnect",
+        uri: bunkerUri(),
+      });
+      return result.success;
+    } catch {
+      return false;
+    }
+  });
+
   const signinNip07 = async () => {
     if (accounts.active) return;
 
@@ -53,6 +90,44 @@ const App: Component = () => {
 
     userStore.set({
       signInMethod: "nip07",
+      pubkey,
+    });
+  };
+
+  const signinWithNip46 = async () => {
+    if (!bunkerUriIsValid()) return;
+    if (accounts.active) return;
+
+    const signer = await NostrConnectSigner.fromBunkerURI(bunkerUri(), {
+      permissions: [
+        "get_public_key",
+        "nip04_encrypt",
+        "nip04_decrypt",
+        "sign_event:1",
+        `sign_event:${KINDS.PROPOSAL}`,
+        `sign_event:${KINDS.NONCE}`,
+        `sign_event:${KINDS.ADAPTOR}`,
+        `sign_event:${KINDS.DELETION}`,
+      ],
+      onSubOpen: async () => {
+        console.log("onSubOpen");
+      },
+      onSubClose: async () => {
+        console.log("onSubClose");
+      },
+      onPublishEvent: async (event, relays) => {
+        console.log("onPublishEvent", event, relays);
+      },
+    });
+
+    const pubkey = await signer.getPublicKey();
+    const account = new NostrConnectAccount(pubkey, signer);
+
+    accounts.addAccount(account);
+    accounts.setActive(account);
+
+    userStore.set({
+      signInMethod: "nip46",
       pubkey,
     });
   };
@@ -76,17 +151,6 @@ const App: Component = () => {
 
     setNsec("");
   };
-
-  const nsecIsValid = createMemo(() => {
-    if (!nsec()) return false;
-
-    try {
-      const decoded = nip19.decode(nsec());
-      return decoded.type === "nsec";
-    } catch {
-      return false;
-    }
-  });
 
   const proposalsSent = from(
     accounts.active$.pipe(
@@ -244,7 +308,7 @@ const App: Component = () => {
         <p>
           This is a proof of concept for{" "}
           <a
-            href="https://github.com/vstabile/nips/blob/atomic-signature-swaps/XX.md"
+            href="https://primal.net/a/naddr1qvzqqqr4gupzqwe6gtf5eu9pgqk334fke8f2ct43ccqe4y2nhetssnypvhge9ce9qq4kzar0d45kxttnd9nkuct5w4ex2ttnwashqueddamx2u3ddehhxarj956z7vfs9uerqv34lkfrfv"
             target="_blank"
             class="mx-1 text-blue-500"
           >
