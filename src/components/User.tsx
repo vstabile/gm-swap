@@ -88,7 +88,7 @@ export default function User() {
             <Match when={!profile()}>
               <img
                 src={"https://robohash.org/" + account()?.pubkey}
-                class="h-8 w-8 rounded-full"
+                class="h-8 w-8 rounded-full object-cover"
               />
             </Match>
           </Switch>

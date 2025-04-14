@@ -1,9 +1,14 @@
 import { createRxNostr, noopVerifier } from "rx-nostr";
+import { verifier } from "@rx-nostr/crypto";
 
 export const rxNostr = createRxNostr({
   // skip verification here because we are going to verify events at the event store
   skipVerify: true,
   verifier: noopVerifier,
+});
+
+export const rxNostrDVM = createRxNostr({
+  verifier,
 });
 
 rxNostr.setDefaultRelays([
@@ -13,9 +18,14 @@ rxNostr.setDefaultRelays([
   "wss://relay.nostr.band",
 ]);
 
+rxNostrDVM.setDefaultRelays(["wss://relay.vertexlab.io"]);
+
 export const KINDS = {
   PROPOSAL: 455,
   NONCE: 456,
   ADAPTOR: 457,
   DELETION: 5,
+  SEARCH_REQUEST: 5315,
+  SEARCH_RESPONSE: 6315,
+  JOB_FEEDBACK: 7000,
 };

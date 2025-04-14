@@ -1,21 +1,29 @@
 import { EventStore, Query, QueryStore } from "applesauce-core";
 import { NostrEvent, verifyEvent, VerifiedEvent } from "nostr-tools";
 import { KINDS } from "./nostr";
-import { createSignal } from "solid-js";
+import { Accessor, createSignal, from } from "solid-js";
 import { hexToBytes } from "@noble/hashes/utils";
 import {
   proposalEventSchema,
   nonceEventSchema,
   adaptorEventSchema,
 } from "~/schema";
+import { ProfileContent } from "applesauce-core/helpers";
+import { ProfileQuery } from "applesauce-core/queries";
+import { map, mergeMap, toArray } from "rxjs";
 
 export const STORAGE_KEY = "gm_swap";
 
 type User = {
-  signInMethod: "nsec" | "nip07";
+  signInMethod: "nsec" | "nip07" | "nip46";
   key?: string;
   pubkey: string;
 };
+
+export type SearchResults = {
+  pubkey: string;
+  profile: Accessor<ProfileContent>;
+}[];
 
 const [user, setUser] = createSignal<User | null>(null);
 
@@ -44,6 +52,29 @@ eventStore.verifyEvent = deepVerifyEvent;
 
 // the query store needs the event store to subscribe to it
 export const queryStore = new QueryStore(eventStore);
+
+// type Swap = {
+//   id: string;
+//   proposer: string;
+//   counterparty: string;
+//   nonce: string;
+//   adaptors: {
+//     sa: string;
+//     R: string;
+//     T: string;
+//   }[];
+//   given: NostrEvent;
+//   taken: NostrEvent;
+// };
+
+// /** A query that returns the current state of a swap */
+// export function SwapQuery(proposalId: string): Query<Swap> {
+//   return {
+//     key: `swap-${proposalId}`,
+//     run: (events) =>
+//       events.filters([{ kinds: [KINDS.PROPOSAL], "#E": [proposal.id] }]),
+//   };
+// }
 
 /** A query that returns all reactions to an event (supports replaceable events) */
 export function SwapNonceQuery(proposal: NostrEvent): Query<NostrEvent> {

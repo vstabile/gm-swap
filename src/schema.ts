@@ -138,7 +138,118 @@ export const adaptorEventSchema = z.object({
   sig: z.string().length(128),
 });
 
+// Bunker URI Schema
+const bunkerUriSchema = z.string().refine(
+  (uri) => {
+    try {
+      const url = new URL(uri);
+      if (url.protocol !== "bunker:") return false;
+
+      // Validate pubkey in hostname
+      const pubkey = url.hostname;
+      if (!/^[0-9a-f]{64}$/i.test(pubkey)) return false;
+
+      // Validate relays
+      const relays = url.searchParams.getAll("relay");
+      if (relays.length === 0) return false;
+      for (const relay of relays) {
+        try {
+          const relayUrl = new URL(relay);
+          if (relayUrl.protocol !== "wss:") return false;
+        } catch {
+          return false;
+        }
+      }
+
+      // Validate secret if present
+      const secret = url.searchParams.get("secret");
+      if (secret && !/^[a-zA-Z0-9_-]{1,64}$/.test(secret)) return false;
+
+      return true;
+    } catch {
+      return false;
+    }
+  },
+  {
+    message: "Invalid bunker URI format",
+  }
+);
+
+// NostrConnect URI Schema
+const nostrConnectUriSchema = z.string().refine(
+  (uri) => {
+    try {
+      const url = new URL(uri);
+      if (url.protocol !== "nostrconnect:") return false;
+
+      // Validate pubkey in hostname
+      const pubkey = url.hostname;
+      if (!/^[0-9a-f]{64}$/i.test(pubkey)) return false;
+
+      // Validate required parameters
+      const relays = url.searchParams.getAll("relay");
+      if (relays.length === 0) return false;
+      for (const relay of relays) {
+        try {
+          const relayUrl = new URL(relay);
+          if (relayUrl.protocol !== "wss:") return false;
+        } catch {
+          return false;
+        }
+      }
+
+      const secret = url.searchParams.get("secret");
+      if (!secret || !/^[a-zA-Z0-9_-]{1,64}$/.test(secret)) return false;
+
+      // Validate optional parameters
+      const perms = url.searchParams.get("perms");
+      if (perms && !/^[a-zA-Z0-9_,-]+$/.test(perms)) return false;
+
+      const name = url.searchParams.get("name");
+      if (name && name.length > 100) return false;
+
+      const appUrl = url.searchParams.get("url");
+      if (appUrl) {
+        try {
+          new URL(appUrl);
+        } catch {
+          return false;
+        }
+      }
+
+      const image = url.searchParams.get("image");
+      if (image) {
+        try {
+          new URL(image);
+        } catch {
+          return false;
+        }
+      }
+
+      return true;
+    } catch {
+      return false;
+    }
+  },
+  {
+    message: "Invalid nostrconnect URI format",
+  }
+);
+
+// Combined URI Schema
+export const connectionUriSchema = z.discriminatedUnion("type", [
+  z.object({
+    type: z.literal("bunker"),
+    uri: bunkerUriSchema,
+  }),
+  z.object({
+    type: z.literal("nostrconnect"),
+    uri: nostrConnectUriSchema,
+  }),
+]);
+
 // Type exports
+export type ConnectionUri = z.infer<typeof connectionUriSchema>;
 export type NonceEvent = z.infer<typeof nonceEventSchema>;
 export type AdaptorEvent = z.infer<typeof adaptorEventSchema>;
 export type ProposalEvent = z.infer<typeof proposalEventSchema>;

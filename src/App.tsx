@@ -179,7 +179,7 @@ const App: Component = () => {
   );
 
   onMount(() => {
-    rxNostr.use(rxReq).subscribe(({ event }) => {
+    const subscription = rxNostr.use(rxReq).subscribe(({ event }) => {
       eventStore.add(event);
     });
 
@@ -198,7 +198,11 @@ const App: Component = () => {
     };
 
     const interval = setInterval(checkNip07, 100);
-    onCleanup(() => clearInterval(interval));
+
+    onCleanup(() => {
+      clearInterval(interval);
+      subscription.unsubscribe();
+    });
   });
 
   createEffect(() => {

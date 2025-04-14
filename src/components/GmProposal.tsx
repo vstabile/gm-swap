@@ -66,7 +66,7 @@ export default function GmProposal(props: { proposal: NostrEvent }) {
               src={
                 proposerProfile()?.picture || "https://robohash.org/" + proposer
               }
-              class="h-5 w-5 rounded-full mr-2"
+              class="h-5 w-5 rounded-full mr-2 object-cover"
             />
             <span class="truncate">
               {proposerProfile()?.display_name ||
@@ -98,7 +98,7 @@ export default function GmProposal(props: { proposal: NostrEvent }) {
                 counterpartyProfile()?.picture ||
                 "https://robohash.org/" + counterparty
               }
-              class="h-5 w-5 rounded-full ml-2"
+              class="h-5 w-5 rounded-full ml-2 object-cover"
             />
           </div>
         </div>
