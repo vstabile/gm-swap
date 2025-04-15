@@ -19,6 +19,7 @@ import { DVM_RELAY, KINDS, rxNostr } from "~/lib/nostr";
 import { queryStore, SearchResults } from "~/lib/stores";
 import { profileName } from "~/lib/utils";
 import ProfilePicture from "./ProfilePicture";
+import { firstValueFrom, timeout, TimeoutError } from "rxjs";
 
 export default function NpubInput(props: {
   npub: string;
@@ -34,56 +35,55 @@ export default function NpubInput(props: {
     // Handle the Search DVM response
     const subscription = rxNostr
       .use(rxReq, { on: { relays: [DVM_RELAY] } })
-      .subscribe(({ event }) => {
-        try {
-          const results = JSON.parse(event.content).map(
-            (result: { pubkey: string; rank: number }) => {
-              replaceableLoader.next({
-                pubkey: result.pubkey,
-                kind: 0,
-              });
-
-              return {
-                pubkey: result.pubkey,
-                profile: from(
-                  queryStore.createQuery(ProfileQuery, result.pubkey)
-                ),
-              };
-            }
-          );
-
-          setIsSearching(false);
-          setSearchResults(results);
-        } catch (error) {
-          console.error("Error parsing DVM response", error);
-        }
-      });
+      .subscribe(({ event }) => handleSearchResponse(event));
 
     onCleanup(() => subscription.unsubscribe());
   });
 
-  async function handleSearch(query: string) {
-    if (!query || query.length === 0) return;
+  function handleSearchResponse(event: NostrEvent) {
+    try {
+      const results = JSON.parse(event.content).map(
+        (result: { pubkey: string; rank: number }) => {
+          replaceableLoader.next({
+            pubkey: result.pubkey,
+            kind: 0,
+          });
 
+          return {
+            pubkey: result.pubkey,
+            profile: from(queryStore.createQuery(ProfileQuery, result.pubkey)),
+          };
+        }
+      );
+
+      setIsSearching(false);
+      setSearchResults(results);
+    } catch (error) {
+      console.error("Error parsing DVM response", error);
+    }
+  }
+
+  async function handleSearchRequest(query: string) {
     setSearchResults([]);
     setIsSearching(true);
     setIsFocused(true);
 
-    await actions.exec(SearchPubkeys, query).forEach((event: NostrEvent) => {
-      // Subscribe to the DVM response
-      rxReq.emit([
-        {
-          kinds: [KINDS.SEARCH_RESPONSE],
-          "#e": [event.id],
-        },
-      ]);
+    // Build and sign the Search job request event
+    const event = await firstValueFrom(actions.exec(SearchPubkeys, query));
 
-      // Workaround for some kind of racing condition
-      setTimeout(
-        () => rxNostr.send(event, { on: { relays: [DVM_RELAY] } }),
-        100
-      );
-    });
+    // Subscribe to the job response
+    rxReq.emit([
+      {
+        kinds: [KINDS.SEARCH_RESPONSE],
+        "#e": [event.id],
+      },
+    ]);
+
+    // Workaround for some kind of racing condition
+    setTimeout(
+      () => rxNostr.send(event, { on: { relays: [DVM_RELAY] } }),
+      1000
+    );
   }
 
   createEffect(() => {
@@ -101,7 +101,7 @@ export default function NpubInput(props: {
       if (value.startsWith("npub") || value === "") {
         props.onChange(value);
       } else if (value.length >= 3) {
-        handleSearch(value);
+        handleSearchRequest(value);
       }
     }, 500);
   };
