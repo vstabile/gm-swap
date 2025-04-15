@@ -249,17 +249,17 @@ const App: Component = () => {
             >
               Sign In with NIP-07
             </Button>
-            <div class="flex gap-2 mt-2 text-sm w-full max-w-sm">
+            <div class="flex gap-2 mt-2 w-full max-w-sm">
               <TextField class="w-full">
                 <TextFieldInput
                   type="text"
-                  class="bg-white h-6"
+                  class="bg-white h-8 sm:h-6 text-base sm:text-sm"
                   placeholder="nsec1..."
                   onInput={(e) => setNsec((e.target as HTMLInputElement).value)}
                 />
               </TextField>
               <Button
-                class="rounded-md h-6 px-2 text-xs"
+                class="rounded-md h-8 sm:h-6 px-2 text-base sm:text-xs"
                 onClick={signinWithNsec}
                 disabled={!nsecIsValid()}
               >

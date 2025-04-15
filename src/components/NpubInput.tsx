@@ -124,7 +124,8 @@ export default function NpubInput(props: {
           id="npub"
           placeholder="Who do you want to swap GM with?"
           class={
-            (resultsAreVisible() ? "rounded-b-none" : "") + " bg-white pl-9"
+            (resultsAreVisible() ? "rounded-b-none" : "") +
+            " bg-white pl-9 text-base sm:text-sm"
           }
           value={props.npub}
           onInput={(e) => handleChange((e.target as HTMLInputElement).value)}
