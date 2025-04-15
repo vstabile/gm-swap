@@ -27,7 +27,6 @@ export default function NpubInput(props: {
   const rxReq = createRxForwardReq();
   let debounceTimer: NodeJS.Timeout;
   const [isSearching, setIsSearching] = createSignal(false);
-  const [query, setQuery] = createSignal<string | null>(null);
   const [searchResults, setSearchResults] = createSignal<SearchResults>([]);
   const [isFocused, setIsFocused] = createSignal(false);
 
@@ -60,22 +59,25 @@ export default function NpubInput(props: {
     onCleanup(() => subscription.unsubscribe());
   });
 
-  createEffect(async () => {
-    if (!query()) return;
+  async function handleSearch(query: string) {
+    if (!query || query.length === 0) return;
 
-    await actions.exec(SearchPubkeys, query()).forEach((event: NostrEvent) => {
-      // Subscribe to the DVM response
-      rxNostrDVM.send(event);
-      setTimeout(() => {
+    setSearchResults([]);
+    setIsSearching(true);
+    setIsFocused(true);
+
+    await actions.exec(SearchPubkeys, query).forEach((event: NostrEvent) => {
+      rxNostrDVM.send(event).subscribe((packet) => {
+        // Subscribe to the DVM response
         rxReq.emit([
           {
             kinds: [KINDS.SEARCH_RESPONSE],
             "#e": [event.id],
           },
         ]);
-      }, 100);
+      });
     });
-  });
+  }
 
   createEffect(() => {
     if (props.npub === "") {
@@ -87,19 +89,12 @@ export default function NpubInput(props: {
     clearTimeout(debounceTimer);
 
     debounceTimer = setTimeout(() => {
-      if (value.startsWith("npub")) {
+      setIsFocused(false);
+
+      if (value.startsWith("npub") || value === "") {
         props.onChange(value);
-        setIsFocused(false);
-        setIsSearching(false);
-      } else if (value.length === 0) {
-        props.onChange("");
-        setIsFocused(false);
-        setIsSearching(false);
-      } else {
-        setIsSearching(true);
-        setIsFocused(true);
-        setSearchResults([]);
-        setQuery(value);
+      } else if (value.length >= 3) {
+        handleSearch(value);
       }
     }, 500);
   };
@@ -138,6 +133,7 @@ export default function NpubInput(props: {
             // Small delay to allow clicking on results
             setTimeout(() => setIsFocused(false), 200);
           }}
+          autocomplete="off"
         />
         {isSearching() && (
           <LucideLoader class="w-4 h-4 absolute right-3 text-gray-400 animate-spin" />
@@ -163,11 +159,11 @@ export default function NpubInput(props: {
                   <div class="flex mr-4 w-8">
                     <ProfilePicture {...result} />
                   </div>
-                  <div class="flex flex-col text-left">
-                    <p class="text-sm">
+                  <div class="flex flex-col text-left overflow-hidden w-full">
+                    <p class="text-sm truncate max-w-full">
                       {profileName(result.profile(), result.pubkey)}
                     </p>
-                    <p class="text-sm text-gray-500">
+                    <p class="flex text-sm text-gray-500 truncate max-w-full">
                       {result.profile() && result.profile().nip05}
                     </p>
                   </div>

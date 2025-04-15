@@ -6,11 +6,20 @@ type ProfilePictureProps = {
   pubkey: string;
 };
 
+function fallbackImage(pubkey: string) {
+  return "https://robohash.org/" + pubkey;
+}
+
 export default function ProfilePicture(props: ProfilePictureProps) {
   return (
-    <img
-      src={props.profile()?.picture || "https://robohash.org/" + props.pubkey}
-      class="h-8 w-8 rounded-full mr-2 object-cover"
-    />
+    <div class="h-8 w-8 rounded-full overflow-hidden flex-shrink-0">
+      <img
+        src={props.profile()?.picture || fallbackImage(props.pubkey)}
+        class="h-full w-full object-cover"
+        onError={(e) => {
+          (e.target as HTMLImageElement).src = fallbackImage(props.pubkey);
+        }}
+      />
+    </div>
   );
 }
