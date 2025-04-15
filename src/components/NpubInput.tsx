@@ -15,9 +15,9 @@ import {
 import { TextField, TextFieldInput } from "~/components/ui/text-field";
 import { actions, SearchPubkeys } from "~/lib/actions";
 import { replaceableLoader } from "~/lib/loaders";
-import { KINDS, rxNostrDVM } from "~/lib/nostr";
+import { DVM_RELAY, KINDS, rxNostr } from "~/lib/nostr";
 import { queryStore, SearchResults } from "~/lib/stores";
-import { profileName, truncatedNpub } from "~/lib/utils";
+import { profileName } from "~/lib/utils";
 import ProfilePicture from "./ProfilePicture";
 
 export default function NpubInput(props: {
@@ -32,29 +32,31 @@ export default function NpubInput(props: {
 
   onMount(() => {
     // Handle the Search DVM response
-    const subscription = rxNostrDVM.use(rxReq).subscribe(({ event }) => {
-      try {
-        const results = JSON.parse(event.content).map(
-          (result: { pubkey: string; rank: number }) => {
-            replaceableLoader.next({
-              pubkey: result.pubkey,
-              kind: 0,
-            });
+    const subscription = rxNostr
+      .use(rxReq, { on: { relays: [DVM_RELAY] } })
+      .subscribe(({ event }) => {
+        try {
+          const results = JSON.parse(event.content).map(
+            (result: { pubkey: string; rank: number }) => {
+              replaceableLoader.next({
+                pubkey: result.pubkey,
+                kind: 0,
+              });
 
-            return {
-              pubkey: result.pubkey,
-              profile: from(
-                queryStore.createQuery(ProfileQuery, result.pubkey)
-              ),
-            };
-          }
-        );
-        setIsSearching(false);
-        setSearchResults(results);
-      } catch (error) {
-        console.error("Error parsing DVM response", error);
-      }
-    });
+              return {
+                pubkey: result.pubkey,
+                profile: from(
+                  queryStore.createQuery(ProfileQuery, result.pubkey)
+                ),
+              };
+            }
+          );
+          setIsSearching(false);
+          setSearchResults(results);
+        } catch (error) {
+          console.error("Error parsing DVM response", error);
+        }
+      });
 
     onCleanup(() => subscription.unsubscribe());
   });
@@ -67,7 +69,7 @@ export default function NpubInput(props: {
     setIsFocused(true);
 
     await actions.exec(SearchPubkeys, query).forEach((event: NostrEvent) => {
-      rxNostrDVM.send(event).subscribe((packet) => {
+      rxNostr.send(event, { on: { relays: [DVM_RELAY] } }).subscribe((_) => {
         // Subscribe to the DVM response
         rxReq.emit([
           {
