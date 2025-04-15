@@ -51,6 +51,7 @@ export default function NpubInput(props: {
               };
             }
           );
+
           setIsSearching(false);
           setSearchResults(results);
         } catch (error) {
@@ -69,15 +70,19 @@ export default function NpubInput(props: {
     setIsFocused(true);
 
     await actions.exec(SearchPubkeys, query).forEach((event: NostrEvent) => {
-      rxNostr.send(event, { on: { relays: [DVM_RELAY] } }).subscribe((_) => {
-        // Subscribe to the DVM response
-        rxReq.emit([
-          {
-            kinds: [KINDS.SEARCH_RESPONSE],
-            "#e": [event.id],
-          },
-        ]);
-      });
+      // Subscribe to the DVM response
+      rxReq.emit([
+        {
+          kinds: [KINDS.SEARCH_RESPONSE],
+          "#e": [event.id],
+        },
+      ]);
+
+      // Workaround for some kind of racing condition
+      setTimeout(
+        () => rxNostr.send(event, { on: { relays: [DVM_RELAY] } }),
+        100
+      );
     });
   }
 
