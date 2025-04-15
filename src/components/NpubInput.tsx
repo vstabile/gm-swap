@@ -3,11 +3,9 @@ import { LucideLoader, LucideSearch, LucideX } from "lucide-solid";
 import { nip19, NostrEvent } from "nostr-tools";
 import { createRxForwardReq } from "rx-nostr";
 import {
-  createEffect,
   createMemo,
   createSignal,
   For,
-  from,
   onCleanup,
   onMount,
   Show,
@@ -17,27 +15,54 @@ import { actions, SearchPubkeys } from "~/lib/actions";
 import { replaceableLoader } from "~/lib/loaders";
 import { DVM_RELAY, KINDS, rxNostr } from "~/lib/nostr";
 import { queryStore, SearchResults } from "~/lib/stores";
-import { profileName } from "~/lib/utils";
+import { fromReactive, profileName } from "~/lib/utils";
 import ProfilePicture from "./ProfilePicture";
-import { firstValueFrom, timeout, TimeoutError } from "rxjs";
+import {
+  debounceTime,
+  distinctUntilChanged,
+  filter,
+  firstValueFrom,
+  Subject,
+} from "rxjs";
 
 export default function NpubInput(props: {
   npub: string;
   onChange: (value: string) => void;
 }) {
   const rxReq = createRxForwardReq();
-  let debounceTimer: NodeJS.Timeout;
   const [isSearching, setIsSearching] = createSignal(false);
   const [searchResults, setSearchResults] = createSignal<SearchResults>([]);
   const [isFocused, setIsFocused] = createSignal(false);
 
+  const inputChanges = new Subject<string>();
+
   onMount(() => {
     // Handle the Search DVM response
-    const subscription = rxNostr
+    const searchSubscription = rxNostr
       .use(rxReq, { on: { relays: [DVM_RELAY] } })
       .subscribe(({ event }) => handleSearchResponse(event));
 
-    onCleanup(() => subscription.unsubscribe());
+    // Handle the input changes and search requests
+    const inputSubscription = inputChanges
+      .pipe(
+        debounceTime(500),
+        distinctUntilChanged(),
+        filter((value) => {
+          if (value.startsWith("npub") || value === "") {
+            props.onChange(value);
+            setIsFocused(false);
+            return false;
+          }
+          return value.length >= 3;
+        })
+      )
+      .subscribe((query) => handleSearchRequest(query));
+
+    onCleanup(() => {
+      searchSubscription.unsubscribe();
+      inputSubscription.unsubscribe();
+      inputChanges.complete();
+    });
   });
 
   function handleSearchResponse(event: NostrEvent) {
@@ -51,7 +76,9 @@ export default function NpubInput(props: {
 
           return {
             pubkey: result.pubkey,
-            profile: from(queryStore.createQuery(ProfileQuery, result.pubkey)),
+            profile: fromReactive(() =>
+              queryStore.createQuery(ProfileQuery, result.pubkey)
+            ),
           };
         }
       );
@@ -80,35 +107,8 @@ export default function NpubInput(props: {
     ]);
 
     // Workaround for some kind of racing condition
-    setTimeout(
-      () => rxNostr.send(event, { on: { relays: [DVM_RELAY] } }),
-      1000
-    );
+    setTimeout(() => rxNostr.send(event, { on: { relays: [DVM_RELAY] } }), 200);
   }
-
-  createEffect(() => {
-    if (props.npub === "") {
-      clearTimeout(debounceTimer);
-    }
-  });
-
-  const handleChange = (value: string) => {
-    clearTimeout(debounceTimer);
-
-    debounceTimer = setTimeout(() => {
-      setIsFocused(false);
-
-      if (value.startsWith("npub") || value === "") {
-        props.onChange(value);
-      } else if (value.length >= 3) {
-        handleSearchRequest(value);
-      }
-    }, 500);
-  };
-
-  onCleanup(() => {
-    clearTimeout(debounceTimer);
-  });
 
   function handleSelect(pubkey: string) {
     props.onChange(nip19.npubEncode(pubkey));
@@ -134,7 +134,9 @@ export default function NpubInput(props: {
             (resultsAreVisible() ? "rounded-b-none" : "") + " bg-white pl-9"
           }
           value={props.npub}
-          onInput={(e) => handleChange((e.target as HTMLInputElement).value)}
+          onInput={(e) =>
+            inputChanges.next((e.target as HTMLInputElement).value)
+          }
           onFocus={() => setIsFocused(true)}
           onBlur={() => {
             // Small delay to allow clicking on results
