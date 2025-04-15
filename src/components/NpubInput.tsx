@@ -1,5 +1,5 @@
 import { ProfileQuery } from "applesauce-core/queries";
-import { LucideLoader, LucideSearch } from "lucide-solid";
+import { LucideLoader, LucideSearch, LucideX } from "lucide-solid";
 import { nip19, NostrEvent } from "nostr-tools";
 import { createRxForwardReq } from "rx-nostr";
 import {
@@ -17,7 +17,8 @@ import { actions, SearchPubkeys } from "~/lib/actions";
 import { replaceableLoader } from "~/lib/loaders";
 import { KINDS, rxNostrDVM } from "~/lib/nostr";
 import { queryStore, SearchResults } from "~/lib/stores";
-import { truncatedNpub } from "~/lib/utils";
+import { profileName, truncatedNpub } from "~/lib/utils";
+import ProfilePicture from "./ProfilePicture";
 
 export default function NpubInput(props: {
   npub: string;
@@ -72,7 +73,7 @@ export default function NpubInput(props: {
             "#e": [event.id],
           },
         ]);
-      }, 500);
+      }, 100);
     });
   });
 
@@ -111,12 +112,16 @@ export default function NpubInput(props: {
     props.onChange(nip19.npubEncode(pubkey));
   }
 
+  function handleClearInput() {
+    props.onChange("");
+  }
+
   const resultsAreVisible = createMemo(() => {
     return isFocused() && searchResults() && searchResults().length > 0;
   });
 
   return (
-    <div class="flex flex-col max-w-sm w-full">
+    <div class="relative flex flex-col max-w-sm w-full">
       <TextField class="relative flex items-center flex-row w-full">
         <LucideSearch class="w-4 h-4 absolute left-3 text-gray-400" />
         <TextFieldInput
@@ -137,10 +142,18 @@ export default function NpubInput(props: {
         {isSearching() && (
           <LucideLoader class="w-4 h-4 absolute right-3 text-gray-400 animate-spin" />
         )}
+        {props.npub && props.npub.length > 0 && (
+          <button
+            onClick={handleClearInput}
+            class="absolute right-2 bg-secondary rounded-full p-0.5"
+          >
+            <LucideX class="w-4 h-4 text-red-600" />
+          </button>
+        )}
       </TextField>
       <Show when={resultsAreVisible()}>
-        <div class="absolute mt-10 w-full max-w-sm">
-          <div class="bg-white rounded-b-md shadow-md py-1">
+        <div class="absolute mt-10 w-full">
+          <div class="bg-white rounded-b-md shadow-md py-1 border border-t-0">
             <For each={searchResults()}>
               {(result) => (
                 <button
@@ -148,19 +161,11 @@ export default function NpubInput(props: {
                   onClick={() => handleSelect(result.pubkey)}
                 >
                   <div class="flex mr-4 w-8">
-                    <img
-                      src={
-                        result.profile()?.picture ||
-                        "https://robohash.org/" + result.pubkey
-                      }
-                      class="h-8 w-8 rounded-full mr-2 object-cover"
-                    />
+                    <ProfilePicture {...result} />
                   </div>
                   <div class="flex flex-col text-left">
                     <p class="text-sm">
-                      {result.profile()
-                        ? result.profile().name
-                        : truncatedNpub(result.pubkey)}
+                      {profileName(result.profile(), result.pubkey)}
                     </p>
                     <p class="text-sm text-gray-500">
                       {result.profile() && result.profile().nip05}

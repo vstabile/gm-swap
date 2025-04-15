@@ -1,11 +1,4 @@
-import {
-  createEffect,
-  createMemo,
-  createSignal,
-  from,
-  Match,
-  Switch,
-} from "solid-js";
+import { createEffect, createMemo, createSignal, from } from "solid-js";
 import { accounts } from "../lib/accounts";
 import { replaceableLoader } from "../lib/loaders";
 import { of, switchMap } from "rxjs";
@@ -20,7 +13,8 @@ import {
   DropdownMenuTrigger,
 } from "../components/ui/dropdown-menu";
 import { LucideLogOut } from "lucide-solid";
-import { truncatedNpub } from "../lib/utils";
+import { profileName, truncatedNpub } from "../lib/utils";
+import ProfilePicture from "./ProfilePicture";
 
 export default function User() {
   const account = from(accounts.active$);
@@ -75,29 +69,11 @@ export default function User() {
     <>
       <DropdownMenu>
         <DropdownMenuTrigger>
-          <Switch>
-            <Match when={account() && profile()}>
-              <img
-                src={
-                  profile()?.picture ||
-                  "https://robohash.org/" + account()?.pubkey
-                }
-                class="h-8 w-8 rounded-full"
-              />
-            </Match>
-            <Match when={!profile()}>
-              <img
-                src={"https://robohash.org/" + account()?.pubkey}
-                class="h-8 w-8 rounded-full object-cover"
-              />
-            </Match>
-          </Switch>
+          <ProfilePicture profile={profile} pubkey={account()?.pubkey} />
         </DropdownMenuTrigger>
         <DropdownMenuContent class="bg-white">
           <DropdownMenuLabel>
-            {profile()?.display_name || (
-              <span class="text-xs">{displayNpub()}</span>
-            )}
+            {profileName(profile(), account()?.pubkey)}
           </DropdownMenuLabel>
           <DropdownMenuSeparator />
           <DropdownMenuItem onClick={signout}>

@@ -1,7 +1,8 @@
+import { ProfileContent } from "applesauce-core/helpers";
 import { type ClassValue, clsx } from "clsx";
 import { nip19 } from "nostr-tools";
 import { Observable, Subscription } from "rxjs";
-import { createEffect, createSignal, onCleanup } from "solid-js";
+import { Accessor, createEffect, createSignal, onCleanup } from "solid-js";
 import { twMerge } from "tailwind-merge";
 
 export function cn(...inputs: ClassValue[]) {
@@ -24,4 +25,8 @@ export function fromReactive<T>(getObservable: () => Observable<T>) {
   });
 
   return value;
+}
+
+export function profileName(profile: ProfileContent, pubkey: string) {
+  return profile?.display_name || profile?.name || truncatedNpub(pubkey);
 }

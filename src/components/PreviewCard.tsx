@@ -4,7 +4,8 @@ import { EventTemplate, nip19 } from "nostr-tools";
 import { createEffect, createMemo, createSignal, from, Show } from "solid-js";
 import { replaceableLoader } from "~/lib/loaders";
 import { queryStore } from "~/lib/stores";
-import { fromReactive, truncatedNpub } from "~/lib/utils";
+import { fromReactive, profileName, truncatedNpub } from "~/lib/utils";
+import ProfilePicture from "./ProfilePicture";
 
 export function PreviewCard(props: { note: EventTemplate; pubkey: string }) {
   const profile = fromReactive(() =>
@@ -59,13 +60,8 @@ export function PreviewCard(props: { note: EventTemplate; pubkey: string }) {
   return (
     <div class="flex flex-col border border-gray-200 rounded-md p-3 bg-white max-w-sm w-full">
       <div class="flex flex-row items-center mb-2">
-        <img
-          src={profile()?.picture || "https://robohash.org/" + props.pubkey}
-          class="h-6 w-6 rounded-full mr-2 object-cover"
-        />
-        <span class="mr-2">
-          {profile() ? profile().name : truncatedNpub(props.pubkey)}
-        </span>
+        <ProfilePicture profile={profile} pubkey={props.pubkey} />
+        <span class="mr-2">{profileName(profile(), props.pubkey)}</span>
         <Show when={profile()?.nip05}>
           <span class="text-sm text-muted-foreground">{profile().nip05}</span>
         </Show>
