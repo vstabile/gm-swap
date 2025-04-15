@@ -133,8 +133,8 @@ const App: Component = () => {
   };
 
   const signinWithNsec = async () => {
-    if (!nsecIsValid()) return;
     if (accounts.active) return;
+    if (!nsecIsValid() && !userStore.getKey()) return;
 
     const signer = new SimpleSigner(userStore.getKey() || key());
     const pubkey = await signer.getPublicKey();
@@ -253,7 +253,7 @@ const App: Component = () => {
               <TextField class="w-full">
                 <TextFieldInput
                   type="text"
-                  class="bg-white h-8 sm:h-6 text-base sm:text-sm"
+                  class="bg-white h-8 sm:h-6"
                   placeholder="nsec1..."
                   onInput={(e) => setNsec((e.target as HTMLInputElement).value)}
                 />
