@@ -60,8 +60,10 @@ export function PreviewCard(props: { note: EventTemplate; pubkey: string }) {
   return (
     <div class="flex flex-col border border-gray-200 rounded-md p-3 bg-white max-w-sm w-full">
       <div class="flex flex-row items-center mb-2 w-full overflow-hidden">
-        <ProfilePicture profile={profile} pubkey={props.pubkey} />
-        <span class="flex mr-2 max-w-full truncate">
+        <div class="h-6 w-6 rounded-full overflow-hidden flex-shrink-0">
+          <ProfilePicture profile={profile} pubkey={props.pubkey} />
+        </div>
+        <span class="flex ml-2 max-w-full truncate">
           {profileName(profile(), props.pubkey)}
         </span>
         <Show when={profile()?.nip05}>

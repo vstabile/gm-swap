@@ -69,7 +69,9 @@ export default function User() {
     <>
       <DropdownMenu>
         <DropdownMenuTrigger>
-          <ProfilePicture profile={profile} pubkey={account()?.pubkey} />
+          <div class="h-8 w-8 rounded-full overflow-hidden flex-shrink-0">
+            <ProfilePicture profile={profile} pubkey={account()?.pubkey} />
+          </div>
         </DropdownMenuTrigger>
         <DropdownMenuContent class="bg-white">
           <DropdownMenuLabel>

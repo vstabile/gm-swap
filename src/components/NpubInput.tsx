@@ -24,6 +24,7 @@ import {
   firstValueFrom,
   Subject,
 } from "rxjs";
+import { getTagValue } from "applesauce-core/helpers";
 
 export default function NpubInput(props: {
   npub: string;
@@ -66,6 +67,14 @@ export default function NpubInput(props: {
   });
 
   function handleSearchResponse(event: NostrEvent) {
+    setIsSearching(false);
+
+    if (event.kind === KINDS.JOB_FEEDBACK) {
+      const status = event.tags.find((tag) => tag[0] === "status")?.join(": ");
+      console.error(status, event);
+      return;
+    }
+
     try {
       const results = JSON.parse(event.content).map(
         (result: { pubkey: string; rank: number }) => {
@@ -83,7 +92,6 @@ export default function NpubInput(props: {
         }
       );
 
-      setIsSearching(false);
       setSearchResults(results);
     } catch (error) {
       console.error("Error parsing DVM response", error);
@@ -101,13 +109,13 @@ export default function NpubInput(props: {
     // Subscribe to the job response
     rxReq.emit([
       {
-        kinds: [KINDS.SEARCH_RESPONSE],
+        kinds: [KINDS.SEARCH_RESPONSE, KINDS.JOB_FEEDBACK],
         "#e": [event.id],
       },
     ]);
 
     // Workaround for some kind of racing condition
-    setTimeout(() => rxNostr.send(event, { on: { relays: [DVM_RELAY] } }), 200);
+    setTimeout(() => rxNostr.send(event, { on: { relays: [DVM_RELAY] } }), 400);
   }
 
   function handleSelect(pubkey: string) {
@@ -115,10 +123,11 @@ export default function NpubInput(props: {
   }
 
   function handleClearInput() {
+    inputChanges.next("");
     props.onChange("");
   }
 
-  const resultsAreVisible = createMemo(() => {
+  const showResults = createMemo(() => {
     return isFocused() && searchResults() && searchResults().length > 0;
   });
 
@@ -129,10 +138,8 @@ export default function NpubInput(props: {
         <TextFieldInput
           type="text"
           id="npub"
-          placeholder="Who do you want to swap GM with?"
-          class={
-            (resultsAreVisible() ? "rounded-b-none" : "") + " bg-white pl-9"
-          }
+          placeholder="npub1..."
+          class={(showResults() ? "rounded-b-none" : "") + " bg-white pl-9"}
           value={props.npub}
           onInput={(e) =>
             inputChanges.next((e.target as HTMLInputElement).value)
@@ -156,7 +163,7 @@ export default function NpubInput(props: {
           </button>
         )}
       </TextField>
-      <Show when={resultsAreVisible()}>
+      <Show when={showResults()}>
         <div class="absolute mt-10 w-full">
           <div class="bg-white rounded-b-md shadow-md py-1 border border-t-0">
             <For each={searchResults()}>
@@ -166,7 +173,9 @@ export default function NpubInput(props: {
                   onClick={() => handleSelect(result.pubkey)}
                 >
                   <div class="flex mr-4 w-8">
-                    <ProfilePicture {...result} />
+                    <div class="h-8 w-8 rounded-full overflow-hidden flex-shrink-0">
+                      <ProfilePicture {...result} />
+                    </div>
                   </div>
                   <div class="flex flex-col text-left overflow-hidden w-full">
                     <p class="text-sm truncate max-w-full">
