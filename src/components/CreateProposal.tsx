@@ -12,6 +12,7 @@ import { rxNostr } from "~/lib/nostr";
 export default function CreateProposal() {
   const [npub, setNpub] = createSignal<string>();
   const [isSubmitting, setIsSubmitting] = createSignal(false);
+  const [searchError, setSearchError] = createSignal<string | undefined>();
 
   const account = from(accounts.active$);
 
@@ -72,7 +73,11 @@ export default function CreateProposal() {
 
   return (
     <>
-      <NpubInput npub={npub()} onChange={(value) => setNpub(value)} />
+      <NpubInput
+        npub={npub()}
+        onChange={(value) => setNpub(value)}
+        onSearchError={(error) => setSearchError(error)}
+      />
       <Show when={pubkey() && npub() !== myNpub()}>
         <div class="flex mt-4 w-full">
           <ProposalPreview proposal={proposal()} />
@@ -95,6 +100,11 @@ export default function CreateProposal() {
       <Show when={npub() === myNpub()}>
         <div class="mt-4 w-full text-center text-sm text-red-600">
           <p>You should exchange GMs with others...</p>
+        </div>
+      </Show>
+      <Show when={searchError()}>
+        <div class="mt-4 w-full text-center text-sm text-red-600">
+          <p>{searchError()}</p>
         </div>
       </Show>
     </>

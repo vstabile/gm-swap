@@ -23,12 +23,13 @@ import {
   filter,
   firstValueFrom,
   Subject,
+  tap,
 } from "rxjs";
-import { getTagValue } from "applesauce-core/helpers";
 
 export default function NpubInput(props: {
   npub: string;
   onChange: (value: string) => void;
+  onSearchError: (error: string | undefined) => void;
 }) {
   const rxReq = createRxForwardReq();
   const [isSearching, setIsSearching] = createSignal(false);
@@ -50,6 +51,7 @@ export default function NpubInput(props: {
         distinctUntilChanged(),
         filter((value) => {
           if (value.startsWith("npub") || value === "") {
+            props.onSearchError(undefined);
             props.onChange(value);
             setIsFocused(false);
             return false;
@@ -71,6 +73,7 @@ export default function NpubInput(props: {
 
     if (event.kind === KINDS.JOB_FEEDBACK) {
       const status = event.tags.find((tag) => tag[0] === "status")?.join(": ");
+      props.onSearchError("Search is not working, insert a valid npub.");
       console.error(status, event);
       return;
     }
