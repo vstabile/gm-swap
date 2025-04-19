@@ -1,11 +1,12 @@
 import { ProfileQuery } from "applesauce-core/queries";
 import { LucideLoader, LucideSearch, LucideX } from "lucide-solid";
-import { nip19, NostrEvent } from "nostr-tools";
+import { nip19 } from "nostr-tools";
 import { createRxForwardReq } from "rx-nostr";
 import {
   createMemo,
   createSignal,
   For,
+  from,
   onCleanup,
   onMount,
   Show,
@@ -14,14 +15,18 @@ import { TextField, TextFieldInput } from "~/components/ui/text-field";
 import { actions, SearchPubkeys } from "~/lib/actions";
 import { replaceableLoader } from "~/lib/loaders";
 import { DVM_RELAY, KINDS, rxNostr } from "~/lib/nostr";
-import { queryStore, SearchResults } from "~/lib/stores";
-import { fromReactive, profileName } from "~/lib/utils";
+import { queryStore } from "~/lib/stores";
+import { profileName } from "~/lib/utils";
 import ProfilePicture from "./ProfilePicture";
 import {
   debounceTime,
   distinctUntilChanged,
   filter,
   firstValueFrom,
+  map,
+  merge,
+  partition,
+  share,
   Subject,
   tap,
 } from "rxjs";
@@ -32,20 +37,70 @@ export default function NpubInput(props: {
   onSearchError: (error: string | undefined) => void;
 }) {
   const rxReq = createRxForwardReq();
-  const [isSearching, setIsSearching] = createSignal(false);
-  const [searchResults, setSearchResults] = createSignal<SearchResults>([]);
   const [isFocused, setIsFocused] = createSignal(false);
 
-  const inputChanges = new Subject<string>();
+  const inputChanges$ = new Subject<string>();
+  const isSearching$ = new Subject<boolean>();
+
+  const isSearching = from(isSearching$);
+
+  // Handle search result and feedback events separately
+  const [jobResult$, jobFeedback$] = partition(
+    rxNostr.use(rxReq, { on: { relays: [DVM_RELAY] } }).pipe(share()),
+    ({ event }) => event.kind === KINDS.SEARCH_RESULT
+  );
+
+  const searchResult$ = merge(
+    isSearching$.pipe(
+      filter(Boolean),
+      map(() => [])
+    ),
+    jobResult$.pipe(
+      map(({ event }) => {
+        isSearching$.next(false);
+
+        try {
+          return JSON.parse(event.content).map(
+            (result: { pubkey: string; rank: number }) => {
+              replaceableLoader.next({
+                pubkey: result.pubkey,
+                kind: 0,
+              });
+
+              return {
+                pubkey: result.pubkey,
+                profile: from(
+                  queryStore.createQuery(ProfileQuery, result.pubkey)
+                ),
+              };
+            }
+          );
+        } catch (error) {
+          console.error("Error parsing DVM response", error);
+          return [];
+        }
+      })
+    )
+  );
+
+  const searchResult = from(searchResult$);
+
+  from(
+    jobFeedback$.pipe(
+      tap(({ event }) => {
+        isSearching$.next(false);
+        const status = event.tags
+          .find((tag) => tag[0] === "status")
+          ?.join(": ");
+        props.onSearchError("Search is not working, insert a valid npub.");
+        console.error("JOB_FEEDBACK", status, event);
+      })
+    )
+  );
 
   onMount(() => {
-    // Handle the Search DVM response
-    const searchSubscription = rxNostr
-      .use(rxReq, { on: { relays: [DVM_RELAY] } })
-      .subscribe(({ event }) => handleSearchResponse(event));
-
     // Handle the input changes and search requests
-    const inputSubscription = inputChanges
+    const inputSubscription = inputChanges$
       .pipe(
         debounceTime(500),
         distinctUntilChanged(),
@@ -62,48 +117,14 @@ export default function NpubInput(props: {
       .subscribe((query) => handleSearchRequest(query));
 
     onCleanup(() => {
-      searchSubscription.unsubscribe();
       inputSubscription.unsubscribe();
-      inputChanges.complete();
+      inputChanges$.complete();
+      isSearching$.complete();
     });
   });
 
-  function handleSearchResponse(event: NostrEvent) {
-    setIsSearching(false);
-
-    if (event.kind === KINDS.JOB_FEEDBACK) {
-      const status = event.tags.find((tag) => tag[0] === "status")?.join(": ");
-      props.onSearchError("Search is not working, insert a valid npub.");
-      console.error(status, event);
-      return;
-    }
-
-    try {
-      const results = JSON.parse(event.content).map(
-        (result: { pubkey: string; rank: number }) => {
-          replaceableLoader.next({
-            pubkey: result.pubkey,
-            kind: 0,
-          });
-
-          return {
-            pubkey: result.pubkey,
-            profile: fromReactive(() =>
-              queryStore.createQuery(ProfileQuery, result.pubkey)
-            ),
-          };
-        }
-      );
-
-      setSearchResults(results);
-    } catch (error) {
-      console.error("Error parsing DVM response", error);
-    }
-  }
-
   async function handleSearchRequest(query: string) {
-    setSearchResults([]);
-    setIsSearching(true);
+    isSearching$.next(true);
     setIsFocused(true);
 
     // Build and sign the Search job request event
@@ -112,26 +133,17 @@ export default function NpubInput(props: {
     // Subscribe to the job response
     rxReq.emit([
       {
-        kinds: [KINDS.SEARCH_RESPONSE, KINDS.JOB_FEEDBACK],
+        kinds: [KINDS.SEARCH_RESULT, KINDS.JOB_FEEDBACK],
         "#e": [event.id],
       },
     ]);
 
-    // Workaround for some kind of racing condition
-    setTimeout(() => rxNostr.send(event, { on: { relays: [DVM_RELAY] } }), 400);
-  }
-
-  function handleSelect(pubkey: string) {
-    props.onChange(nip19.npubEncode(pubkey));
-  }
-
-  function handleClearInput() {
-    inputChanges.next("");
-    props.onChange("");
+    // Workaround: wait rxNostr to hot swap the filters
+    setTimeout(() => rxNostr.send(event, { on: { relays: [DVM_RELAY] } }), 200);
   }
 
   const showResults = createMemo(() => {
-    return isFocused() && searchResults() && searchResults().length > 0;
+    return isFocused() && searchResult() && searchResult().length > 0;
   });
 
   return (
@@ -145,7 +157,7 @@ export default function NpubInput(props: {
           class={(showResults() ? "rounded-b-none" : "") + " bg-white pl-9"}
           value={props.npub}
           onInput={(e) =>
-            inputChanges.next((e.target as HTMLInputElement).value)
+            inputChanges$.next((e.target as HTMLInputElement).value)
           }
           onFocus={() => setIsFocused(true)}
           onBlur={() => {
@@ -159,7 +171,10 @@ export default function NpubInput(props: {
         )}
         {props.npub && props.npub.length > 0 && (
           <button
-            onClick={handleClearInput}
+            onClick={() => {
+              inputChanges$.next("");
+              props.onChange("");
+            }}
             class="absolute right-2 bg-secondary rounded-full p-0.5"
           >
             <LucideX class="w-4 h-4 text-red-600" />
@@ -169,11 +184,13 @@ export default function NpubInput(props: {
       <Show when={showResults()}>
         <div class="absolute mt-10 w-full">
           <div class="bg-white rounded-b-md shadow-md py-1 border border-t-0">
-            <For each={searchResults()}>
+            <For each={searchResult()}>
               {(result) => (
                 <button
                   class="flex flex-row items-center py-2 px-3 w-full"
-                  onClick={() => handleSelect(result.pubkey)}
+                  onClick={() =>
+                    props.onChange(nip19.npubEncode(result.pubkey))
+                  }
                 >
                   <div class="flex mr-4 w-8">
                     <div class="h-8 w-8 rounded-full overflow-hidden flex-shrink-0">

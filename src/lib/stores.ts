@@ -20,11 +20,6 @@ type User = {
   pubkey: string;
 };
 
-export type SearchResults = {
-  pubkey: string;
-  profile: Accessor<ProfileContent>;
-}[];
-
 const [user, setUser] = createSignal<User | null>(null);
 
 export const userStore = {
