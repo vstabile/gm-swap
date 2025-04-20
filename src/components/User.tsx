@@ -15,6 +15,7 @@ import {
 import { LucideLogOut } from "lucide-solid";
 import { profileName } from "../lib/utils";
 import ProfilePicture from "./ProfilePicture";
+import { clearSession } from "~/stores/session";
 
 export default function User() {
   const account = from(accounts.active$);
@@ -24,10 +25,11 @@ export default function User() {
     if (!accounts.active) return;
 
     // signout the user
-    userStore.clear();
     const account = accounts.active;
     accounts.removeAccount(account);
     accounts.clearActive();
+
+    clearSession();
   };
 
   // fetch the user's profile when they sign in

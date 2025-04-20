@@ -12,43 +12,29 @@ import {
 import Navbar from "./components/Navbar";
 import GmProposal from "./components/GmProposal";
 import { accounts } from "./lib/accounts";
-import {
-  ExtensionSigner,
-  NostrConnectSigner,
-  SimpleSigner,
-} from "applesauce-signers";
-import {
-  ExtensionAccount,
-  NostrConnectAccount,
-  SimpleAccount,
-} from "applesauce-accounts/accounts";
+import { NostrConnectSigner } from "applesauce-signers";
+import { NostrConnectAccount } from "applesauce-accounts/accounts";
 import { Button } from "./components/ui/button";
 import { createRxForwardReq } from "rx-nostr";
 import { KINDS, rxNostr } from "./lib/nostr";
-import { eventStore, queryStore, STORAGE_KEY, userStore } from "./lib/stores";
+import { eventStore, queryStore } from "./lib/stores";
 import CreateProposal from "./components/CreateProposal";
-import { of, switchMap } from "rxjs";
+import { of, Subscription } from "rxjs";
 import { TextField, TextFieldInput } from "./components/ui/text-field";
 import { nip19 } from "nostr-tools";
-import { bytesToHex } from "@noble/hashes/utils";
-import { connectionUriSchema } from "~/schema";
+import { restoreSession, saveSession } from "./stores/session";
+import { AuthMethod, NIP46_PERMISSIONS, signIn } from "./lib/signIn";
+import { fromReactive, waitForNip07 } from "./lib/utils";
+import NostrConnectDialog from "./components/NostrConnectDialog";
 
 const App: Component = () => {
   const account = from(accounts.active$);
   const rxReq = createRxForwardReq();
+  let subscription: Subscription;
 
-  const [nsec, setNsec] = createSignal("");
+  const [nsec, setNsec] = createSignal<string | undefined>();
+  const [nip46Uri, setNip46Uri] = createSignal<string | undefined>();
   const [nip07Available, setNip07Available] = createSignal(false);
-
-  const key = createMemo(() => {
-    if (!nsec()) return null;
-
-    try {
-      return nip19.decode(nsec()).data as Uint8Array;
-    } catch {
-      return null;
-    }
-  });
 
   const nsecIsValid = createMemo(() => {
     if (!nsec()) return false;
@@ -61,156 +47,38 @@ const App: Component = () => {
     }
   });
 
-  const bunkerUri = createMemo(() => {
-    return `bunker://${userStore.user()?.pubkey}`;
-  });
-
-  const bunkerUriIsValid = createMemo(() => {
-    if (!bunkerUri()) return false;
-    try {
-      const result = connectionUriSchema.safeParse({
-        type: bunkerUri().startsWith("bunker:") ? "bunker" : "nostrconnect",
-        uri: bunkerUri(),
-      });
-      return result.success;
-    } catch {
-      return false;
-    }
-  });
-
-  const signinNip07 = async () => {
-    if (accounts.active) return;
-
-    const signer = new ExtensionSigner();
-    const pubkey = await signer.getPublicKey();
-    const account = new ExtensionAccount(pubkey, signer);
-
-    accounts.addAccount(account);
-    accounts.setActive(account);
-
-    userStore.set({
-      signInMethod: "nip07",
-      pubkey,
-    });
-  };
-
-  const signinWithNip46 = async () => {
-    if (!bunkerUriIsValid()) return;
-    if (accounts.active) return;
-
-    const signer = await NostrConnectSigner.fromBunkerURI(bunkerUri(), {
-      permissions: [
-        "get_public_key",
-        "nip04_encrypt",
-        "nip04_decrypt",
-        "sign_event:1",
-        `sign_event:${KINDS.PROPOSAL}`,
-        `sign_event:${KINDS.NONCE}`,
-        `sign_event:${KINDS.ADAPTOR}`,
-        `sign_event:${KINDS.DELETION}`,
-      ],
-      onSubOpen: async () => {
-        console.log("onSubOpen");
-      },
-      onSubClose: async () => {
-        console.log("onSubClose");
-      },
-      onPublishEvent: async (event, relays) => {
-        console.log("onPublishEvent", event, relays);
-      },
-    });
-
-    const pubkey = await signer.getPublicKey();
-    const account = new NostrConnectAccount(pubkey, signer);
-
-    accounts.addAccount(account);
-    accounts.setActive(account);
-
-    userStore.set({
-      signInMethod: "nip46",
-      pubkey,
-    });
-  };
-
-  const signinWithNsec = async () => {
-    if (accounts.active) return;
-    if (!nsecIsValid() && !userStore.getKey()) return;
-
-    const signer = new SimpleSigner(userStore.getKey() || key());
-    const pubkey = await signer.getPublicKey();
-    const account = new SimpleAccount(pubkey, signer);
-
-    accounts.addAccount(account);
-    accounts.setActive(account);
-
-    userStore.set({
-      signInMethod: "nsec",
-      pubkey,
-      key: bytesToHex(userStore.getKey() || key()),
-    });
-
-    setNsec("");
-  };
-
-  const proposalsSent = from(
-    accounts.active$.pipe(
-      switchMap((account) =>
-        account
-          ? queryStore.timeline({
-              authors: [account.pubkey],
-              kinds: [KINDS.PROPOSAL],
-            })
-          : of([])
-      )
-    )
+  const proposalsSent = fromReactive(() =>
+    account()
+      ? queryStore.timeline({
+          authors: [account().pubkey],
+          kinds: [KINDS.PROPOSAL],
+        })
+      : of([])
   );
 
-  const proposalsReceived = from(
-    accounts.active$.pipe(
-      switchMap((account) =>
-        account
-          ? queryStore.timeline({
-              "#p": [account.pubkey],
-              kinds: [KINDS.PROPOSAL],
-            })
-          : of([])
-      )
-    )
+  const proposalsReceived = fromReactive(() =>
+    account()
+      ? queryStore.timeline({
+          "#p": [account().pubkey],
+          kinds: [KINDS.PROPOSAL],
+        })
+      : of([])
   );
 
-  onMount(() => {
-    const subscription = rxNostr.use(rxReq).subscribe(({ event }) => {
+  onMount(async () => {
+    subscription = rxNostr.use(rxReq).subscribe(({ event }) => {
       eventStore.add(event);
     });
 
-    const stored = localStorage.getItem(STORAGE_KEY);
+    await restoreSession();
 
-    if (stored) {
-      const data = JSON.parse(stored);
-      userStore.set(data);
-    }
-
-    const checkNip07 = () => {
-      if (window.nostr) {
-        setNip07Available(true);
-        clearInterval(interval);
-      }
-    };
-
-    const interval = setInterval(checkNip07, 100);
-
-    onCleanup(() => {
-      clearInterval(interval);
-      subscription.unsubscribe();
+    waitForNip07().then((available) => {
+      setNip07Available(available);
     });
   });
 
-  createEffect(() => {
-    if (account() || !userStore.user()) return;
-
-    userStore.getSignInMethod() === "nip07"
-      ? nip07Available() && signinNip07()
-      : signinWithNsec();
+  onCleanup(() => {
+    subscription.unsubscribe();
   });
 
   createEffect(() => {
@@ -221,6 +89,40 @@ const App: Component = () => {
       { "#p": [account()!.pubkey], kinds: [KINDS.PROPOSAL], limit: 12 },
     ]);
   });
+
+  const handleSignIn = async (method: AuthMethod) => {
+    if (accounts.active) return;
+
+    const result = await signIn(method, nsec() || undefined);
+
+    if (result instanceof NostrConnectSigner) {
+      const signer = result;
+      const uri = signer.getNostrConnectURI({
+        name: "GM Swap",
+        permissions: NIP46_PERMISSIONS,
+      });
+
+      signer.waitForSigner().then(async () => {
+        setNip46Uri(undefined);
+
+        const pubkey = await signer.getPublicKey();
+
+        const account = new NostrConnectAccount(pubkey, signer);
+        accounts.addAccount(account);
+        accounts.setActive(account);
+
+        // TODO: Persist NIP-46 connections on reload
+      });
+
+      setNip46Uri(uri);
+    } else {
+      saveSession({
+        method: method,
+        pubkey: result.pubkey,
+        nsec: method === "nsec" ? nsec() : null,
+      });
+    }
+  };
 
   return (
     <div class="flex flex-col min-h-screen bg-gradient-to-b from-sky-400 via-orange-200 to-yellow-100 text-slate-800">
@@ -243,11 +145,17 @@ const App: Component = () => {
           </Show>
           <Show when={!account()}>
             <Button
-              onClick={signinNip07}
-              class="flex w-full max-w-sm"
+              onClick={() => handleSignIn("nip07")}
+              class="flex w-full max-w-sm mb-1"
               disabled={!nip07Available()}
             >
-              Sign In with NIP-07
+              Sign In with Extension
+            </Button>
+            <Button
+              onClick={() => handleSignIn("nip46")}
+              class="flex w-full max-w-sm"
+            >
+              Sign In with Remote Signer
             </Button>
             <div class="flex gap-2 mt-2 w-full max-w-sm">
               <TextField class="w-full">
@@ -260,7 +168,7 @@ const App: Component = () => {
               </TextField>
               <Button
                 class="rounded-md h-8 sm:h-6 px-2 text-base sm:text-xs"
-                onClick={signinWithNsec}
+                onClick={() => handleSignIn("nsec")}
                 disabled={!nsecIsValid()}
               >
                 Sign In
@@ -272,7 +180,7 @@ const App: Component = () => {
             </p>
           </Show>
         </div>
-        <Show when={proposalsSent().length > 0}>
+        <Show when={proposalsSent() && proposalsSent().length > 0}>
           <h2 class="text-center text-lg font-bold mb-2">Proposals Sent</h2>
           <div class="flex flex-wrap justify-center gap-2 sm:gap-4">
             <For each={proposalsSent()}>
@@ -284,7 +192,7 @@ const App: Component = () => {
             </For>
           </div>
         </Show>
-        <Show when={proposalsReceived().length > 0}>
+        <Show when={proposalsReceived() && proposalsReceived().length > 0}>
           <h2 class="text-center text-lg font-bold mt-6 mb-2">
             Proposals Received
           </h2>
@@ -320,6 +228,10 @@ const App: Component = () => {
           </a>
         </p>
       </div>
+      <NostrConnectDialog
+        uri={nip46Uri()}
+        onClose={() => setNip46Uri(undefined)}
+      />
     </div>
   );
 };

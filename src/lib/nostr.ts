@@ -14,8 +14,9 @@ rxNostr.setDefaultRelays([
   "wss://relay.vertexlab.io",
 ]);
 
-// export const DVM_RELAY = "ws://localhost:3334";
 export const DVM_RELAY = "wss://relay.vertexlab.io";
+
+export const NIP46_RELAY = "wss://relay.nsec.app/";
 
 export const KINDS = {
   PROPOSAL: 455,

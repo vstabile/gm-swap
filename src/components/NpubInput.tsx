@@ -153,7 +153,7 @@ export default function NpubInput(props: {
         <TextFieldInput
           type="text"
           id="npub"
-          placeholder="npub1..."
+          placeholder="Who do you want to swap GMs with?"
           class={(showResults() ? "rounded-b-none" : "") + " bg-white pl-9"}
           value={props.npub}
           onInput={(e) =>

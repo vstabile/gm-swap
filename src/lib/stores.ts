@@ -1,16 +1,13 @@
 import { EventStore, Query, QueryStore } from "applesauce-core";
 import { NostrEvent, verifyEvent, VerifiedEvent } from "nostr-tools";
 import { KINDS } from "./nostr";
-import { Accessor, createSignal, from } from "solid-js";
+import { createSignal } from "solid-js";
 import { hexToBytes } from "@noble/hashes/utils";
 import {
   proposalEventSchema,
   nonceEventSchema,
   adaptorEventSchema,
 } from "~/schema";
-import { ProfileContent } from "applesauce-core/helpers";
-import { ProfileQuery } from "applesauce-core/queries";
-import { map, mergeMap, toArray } from "rxjs";
 
 export const STORAGE_KEY = "gm_swap";
 
