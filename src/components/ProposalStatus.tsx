@@ -2,12 +2,9 @@ import { getEventHash, NostrEvent } from "nostr-tools";
 import { createRxForwardReq } from "rx-nostr";
 import { createEffect, createMemo, from, Show } from "solid-js";
 import { KINDS, rxNostr } from "~/lib/nostr";
-import {
-  SwapNonceQuery,
-  eventStore,
-  queryStore,
-  SwapAdaptorQuery,
-} from "~/lib/stores";
+import { eventStore } from "~/stores/eventStore";
+import { queryStore } from "~/stores/queryStore";
+import { SwapNonceQuery, SwapAdaptorQuery } from "~/queries/swap";
 import { ProposerStatus } from "./ProposalStatus/ProposerStatus";
 import { CounterypartyStatus } from "./ProposalStatus/CounterpartyStatus";
 import { accounts } from "~/lib/accounts";

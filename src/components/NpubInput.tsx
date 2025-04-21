@@ -12,10 +12,9 @@ import {
   Show,
 } from "solid-js";
 import { TextField, TextFieldInput } from "~/components/ui/text-field";
-import { actions, SearchPubkeys } from "~/lib/actions";
 import { replaceableLoader } from "~/lib/loaders";
 import { DVM_RELAY, KINDS, rxNostr } from "~/lib/nostr";
-import { queryStore } from "~/lib/stores";
+import { queryStore } from "~/stores/queryStore";
 import { profileName } from "~/lib/utils";
 import ProfilePicture from "./ProfilePicture";
 import {
@@ -30,6 +29,8 @@ import {
   Subject,
   tap,
 } from "rxjs";
+import { SearchProfile } from "~/actions/searchProfile";
+import { actions } from "~/actions/hub";
 
 export default function NpubInput(props: {
   npub: string;
@@ -128,7 +129,7 @@ export default function NpubInput(props: {
     setIsFocused(true);
 
     // Build and sign the Search job request event
-    const event = await firstValueFrom(actions.exec(SearchPubkeys, query));
+    const event = await firstValueFrom(actions.exec(SearchProfile, query));
 
     // Subscribe to the job response
     rxReq.emit([

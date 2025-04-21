@@ -2,7 +2,7 @@ import { ProfileQuery } from "applesauce-core/queries";
 import { NostrEvent } from "nostr-tools";
 import { createEffect, from } from "solid-js";
 import { replaceableLoader } from "~/lib/loaders";
-import { queryStore } from "~/lib/stores";
+import { queryStore } from "~/stores/queryStore";
 import { truncatedNpub } from "~/lib/utils";
 import { SignatureTemplate } from "~/lib/actions";
 import ProposalStatus from "./ProposalStatus";

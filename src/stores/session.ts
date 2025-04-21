@@ -14,15 +14,15 @@ const defaultSession: Session = {
   nsec: null,
 };
 
-const [session, setSession] = createStore<Session>(defaultSession);
+const [session, setsession] = createStore<Session>(defaultSession);
 
 const saveSession = (data: Session) => {
-  setSession(data);
+  setsession(data);
   localStorage.setItem("session", JSON.stringify(data));
 };
 
 const clearSession = () => {
-  setSession(defaultSession);
+  setsession(defaultSession);
   localStorage.removeItem("session");
 };
 
@@ -45,7 +45,6 @@ const restoreSession = async () => {
       return;
     }
   }
-  console.log(storedSession);
 
   await signIn(storedSession.method, storedSession.nsec || undefined);
 };

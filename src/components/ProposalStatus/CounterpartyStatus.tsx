@@ -1,11 +1,13 @@
 import { LucideHourglass, LucideLoader } from "lucide-solid";
 import { createSignal, Show } from "solid-js";
 import { StatusProps } from "../ProposalStatus";
-import { AcceptProposal, actions, PublishGivenEvent } from "~/lib/actions";
-import { eventStore } from "~/lib/stores";
+import { eventStore } from "~/stores/eventStore";
 import { nip19, NostrEvent } from "nostr-tools";
 import { rxNostr } from "~/lib/nostr";
 import { Button } from "../ui/button";
+import { actions } from "~/actions/hub";
+import { GenerateNonce } from "~/actions/generateNonce";
+import { signGivenEvent } from "~/actions/signGivenEvent";
 
 export function CounterypartyStatus(props: StatusProps) {
   const [isAccepting, setIsAccepting] = createSignal(false);
@@ -17,7 +19,7 @@ export function CounterypartyStatus(props: StatusProps) {
 
     try {
       await actions
-        .exec(AcceptProposal, props.proposal)
+        .exec(GenerateNonce, props.proposal)
         .forEach((event: NostrEvent) => {
           eventStore.add(event);
           rxNostr.send(event);
@@ -47,7 +49,7 @@ export function CounterypartyStatus(props: StatusProps) {
     try {
       await actions
         .exec(
-          PublishGivenEvent,
+          signGivenEvent,
           props.proposal,
           props.nonceEvent,
           props.adaptorEvent

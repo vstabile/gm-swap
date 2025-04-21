@@ -3,7 +3,7 @@ import { ProfileQuery } from "applesauce-core/queries";
 import { EventTemplate, nip19 } from "nostr-tools";
 import { createEffect, createMemo, createSignal, from, Show } from "solid-js";
 import { replaceableLoader } from "~/lib/loaders";
-import { queryStore } from "~/lib/stores";
+import { queryStore } from "~/stores/queryStore";
 import { fromReactive, profileName, truncatedNpub } from "~/lib/utils";
 import ProfilePicture from "./ProfilePicture";
 

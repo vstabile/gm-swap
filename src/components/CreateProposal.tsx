@@ -5,9 +5,10 @@ import { nip19, NostrEvent } from "nostr-tools";
 import { accounts } from "~/lib/accounts";
 import { Button } from "./ui/button";
 import { LucideLoader } from "lucide-solid";
-import { actions, Proposal, Propose } from "~/lib/actions";
-import { eventStore } from "~/lib/stores";
+import { eventStore } from "~/stores/eventStore";
 import { rxNostr } from "~/lib/nostr";
+import { ProposeSwap, SwapProposal } from "~/actions/proposeSwap";
+import { actions } from "~/actions/hub";
 
 export default function CreateProposal() {
   const [npub, setNpub] = createSignal<string>();
@@ -30,7 +31,7 @@ export default function CreateProposal() {
     return pubkey;
   });
 
-  const proposal: Accessor<Proposal | undefined> = createMemo(() => {
+  const proposal: Accessor<SwapProposal | undefined> = createMemo(() => {
     if (!pubkey() || !myNpub()) return undefined;
 
     const created_at = Math.floor(Date.now() / 1000) + 60 * 10; // 10 minutes from now
@@ -61,7 +62,7 @@ export default function CreateProposal() {
     setIsSubmitting(true);
 
     await actions
-      .exec(Propose, pubkey(), proposal())
+      .exec(ProposeSwap, pubkey(), proposal())
       .forEach((event: NostrEvent) => {
         eventStore.add(event);
         rxNostr.send(event);

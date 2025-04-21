@@ -2,7 +2,7 @@ import { createEffect, from } from "solid-js";
 import { accounts } from "../lib/accounts";
 import { replaceableLoader } from "../lib/loaders";
 import { of, switchMap } from "rxjs";
-import { queryStore, userStore } from "../lib/stores";
+import { queryStore } from "~/stores/queryStore";
 import { ProfileQuery } from "applesauce-core/queries";
 import {
   DropdownMenu,

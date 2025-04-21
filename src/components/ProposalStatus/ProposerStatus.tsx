@@ -1,17 +1,16 @@
 import { LucideHourglass, LucideLoader, LucideX } from "lucide-solid";
 import { createSignal, Show } from "solid-js";
 import { Tooltip, TooltipContent, TooltipTrigger } from "../ui/tooltip";
-import { eventStore, userStore } from "~/lib/stores";
+import { eventStore } from "~/stores/eventStore";
 import { nip19, NostrEvent } from "nostr-tools";
 import { StatusProps } from "../ProposalStatus";
-import {
-  actions,
-  ExecuteSwap,
-  PublishTakenEvent,
-  RevokeProposal,
-} from "~/lib/actions";
 import { rxNostr } from "~/lib/nostr";
 import { Button } from "../ui/button";
+import { session } from "~/stores/session";
+import { actions } from "~/actions/hub";
+import { RevokeProposal } from "~/actions/revokeProposal";
+import { GenerateAdaptors } from "~/actions/generateAdaptors";
+import { SignTakenEvent } from "~/actions/signTakenEvent";
 
 export function ProposerStatus(props: StatusProps) {
   const [isRevoking, setIsRevoking] = createSignal(false);
@@ -39,7 +38,7 @@ export function ProposerStatus(props: StatusProps) {
 
     try {
       await actions
-        .exec(ExecuteSwap, props.nonceEvent, props.proposal)
+        .exec(GenerateAdaptors, props.nonceEvent, props.proposal)
         .forEach((event: NostrEvent) => {
           eventStore.add(event);
           rxNostr.send(event);
@@ -56,7 +55,7 @@ export function ProposerStatus(props: StatusProps) {
     try {
       await actions
         .exec(
-          PublishTakenEvent,
+          SignTakenEvent,
           props.proposal,
           props.nonceEvent,
           props.adaptorEvent,
@@ -96,16 +95,16 @@ export function ProposerStatus(props: StatusProps) {
             <TooltipTrigger>
               <button
                 class={
-                  (userStore.getKey() ? "bg-green-600" : "bg-gray-400") +
+                  (session.nsec ? "bg-green-600" : "bg-gray-400") +
                   " text-white px-2 py-1 rounded-md"
                 }
                 onClick={executeSwap}
-                disabled={!userStore.getKey()}
+                disabled={!session.nsec}
               >
                 Swap
               </button>
             </TooltipTrigger>
-            {!userStore.getKey() ? (
+            {!session.nsec ? (
               <TooltipContent>
                 You need to sign in using your nsec in order to swap.
               </TooltipContent>

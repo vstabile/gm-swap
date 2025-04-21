@@ -1,10 +1,6 @@
-import {
-  ReplaceableLoader,
-  SingleEventLoader,
-  TagValueLoader,
-} from "applesauce-loaders";
+import { ReplaceableLoader, SingleEventLoader } from "applesauce-loaders";
 import { rxNostr } from "./nostr";
-import { eventStore } from "./stores";
+import { eventStore } from "~/stores/eventStore";
 
 export const replaceableLoader = new ReplaceableLoader(rxNostr);
 
