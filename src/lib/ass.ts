@@ -1,6 +1,7 @@
 import { ProjPointType } from "@noble/curves/abstract/weierstrass";
 import { schnorr, secp256k1 as secp } from "@noble/curves/secp256k1";
 import { getEventHash, NostrEvent } from "nostr-tools";
+import { Swap } from "~/queries/swap";
 
 export type Adaptor = {
   sa: string; // The adaptor scalar
@@ -45,23 +46,16 @@ export function completeSignatures(
   return sigs;
 }
 
-export function extractSignature(
-  nonceEvent: NostrEvent,
-  adaptorEvent: NostrEvent,
-  give: NostrEvent
-): string {
-  const s_give = BigInt(`0x${give.sig.substring(64)}`);
-  const adaptors = JSON.parse(adaptorEvent.content).adaptors;
+export function extractSignature(swap: Swap): string {
+  const s_give = BigInt(`0x${swap.given.sig.substring(64)}`);
+  const adaptors = swap.adaptors;
 
   const s_a = BigInt("0x" + adaptors[0].sa);
   const t = (s_give - s_a + secp.CURVE.n) % secp.CURVE.n;
   const secret = t.toString(16).padStart(64, "0");
 
   const sig = bytesToHex(
-    new Uint8Array([
-      ...hexToBytes(JSON.parse(nonceEvent.content).nonce),
-      ...hexToBytes(secret),
-    ])
+    new Uint8Array([...hexToBytes(swap.nonce), ...hexToBytes(secret)])
   );
 
   return sig;
@@ -210,7 +204,7 @@ export function computeAdaptors(
 
 // Helper functions
 
-function getTakenId(proposal: NostrEvent): string {
+export function getTakenId(proposal: NostrEvent): string {
   const pubkey = proposal.tags.filter((t) => t[0] === "p")[0][1];
   if (!pubkey) throw new Error("No pubkey found");
 
@@ -222,7 +216,7 @@ function getTakenId(proposal: NostrEvent): string {
   return getEventHash(nostrEvent);
 }
 
-function getGivenId(proposal: NostrEvent): string {
+export function getGivenId(proposal: NostrEvent): string {
   const nostrEvent = {
     pubkey: proposal.pubkey,
     ...JSON.parse(proposal.content)["give"]["template"],

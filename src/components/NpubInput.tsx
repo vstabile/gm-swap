@@ -148,7 +148,7 @@ export default function NpubInput(props: {
   });
 
   return (
-    <div class="relative flex flex-col max-w-sm w-full">
+    <div class="relative flex flex-col max-w-sm w-full z-50">
       <TextField class="relative flex items-center flex-row w-full">
         <LucideSearch class="w-4 h-4 absolute left-3 text-gray-400" />
         <TextFieldInput

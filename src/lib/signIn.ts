@@ -1,14 +1,9 @@
-import {
-  ExtensionAccount,
-  NostrConnectAccount,
-  SimpleAccount,
-} from "applesauce-accounts/accounts";
+import { ExtensionAccount, SimpleAccount } from "applesauce-accounts/accounts";
 import {
   ExtensionSigner,
   NostrConnectSigner,
   SimpleSigner,
 } from "applesauce-signers";
-import { generateSecretKey, getPublicKey } from "nostr-tools";
 import { nip19 } from "nostr-tools";
 import { accounts } from "./accounts";
 import { KINDS, NIP46_RELAY, rxNostr } from "./nostr";
@@ -65,14 +60,6 @@ export async function signIn(method: AuthMethod, nsec?: string) {
     });
 
     return signer;
-
-    // await signer.waitForSigner();
-    // console.log("Connected!");
-
-    // const pubkey = await signer.getPublicKey();
-    // console.log("Users pubkey is", pubkey);
-
-    // account = new NostrConnectAccount(pubkey, signer);
   }
 
   if (account) {

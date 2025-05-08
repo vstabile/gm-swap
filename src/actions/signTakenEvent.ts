@@ -1,19 +1,15 @@
 import { Action } from "applesauce-actions";
 import { getEventHash, NostrEvent } from "nostr-tools";
 import { extractSignature } from "~/lib/ass";
+import { Swap } from "~/queries/swap";
 
-export function SignTakenEvent(
-  proposal: NostrEvent,
-  nonceEvent: NostrEvent,
-  adaptorEvent: NostrEvent,
-  give: NostrEvent
-): Action {
+export function SignTakenEvent(swap: Swap): Action {
   return async function* () {
-    const sig = extractSignature(nonceEvent, adaptorEvent, give);
+    const sig = extractSignature(swap);
 
     const takeTemplate = {
-      pubkey: nonceEvent.pubkey,
-      ...JSON.parse(proposal.content)["take"]["template"],
+      pubkey: swap.noncePubkey,
+      ...JSON.parse(swap.proposal.content)["take"]["template"],
     };
 
     const takeEvent = {

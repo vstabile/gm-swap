@@ -1,9 +1,9 @@
 import { PreviewCard } from "./PreviewCard";
 import { LucideArrowRightLeft, LucideArrowUpDown } from "lucide-solid";
 import { createMemo } from "solid-js";
-import { Proposal } from "~/lib/actions";
+import { SwapProposal } from "~/actions/proposeSwap";
 
-export default function ProposalPreview(props: { proposal: Proposal }) {
+export default function ProposalPreview(props: { proposal: SwapProposal }) {
   const recipient = createMemo(() => {
     if (props.proposal.give.type !== "nostr") return null;
     return props.proposal.give.template.tags.find((t) => t[0] === "p")?.[1];

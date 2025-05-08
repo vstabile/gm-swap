@@ -1,76 +1,31 @@
-import QRCode from "qrcode-svg";
-import { createEffect, createSignal } from "solid-js";
-import { Button } from "./ui/button";
-import {
-  Dialog,
-  DialogContent,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "./ui/dialog";
+import { Show } from "solid-js";
+import { Dialog, DialogContent } from "~/components/ui/dialog";
+import QRCode from "~/components/QRCode";
 
-export default function NostrConnectDialog(props: {
+interface NostrConnectDialogProps {
   uri?: string;
   onClose: () => void;
-}) {
-  const [svgString, setSvgString] = createSignal("");
-  const [copied, setCopied] = createSignal(false);
+}
 
-  // Generate QR code when URI changes
-  createEffect(() => {
-    if (!props.uri) return;
-
-    const qrcode = new QRCode({
-      content: props.uri,
-      width: 256,
-      height: 256,
-      padding: 4,
-      color: "#000000",
-      background: "#ffffff",
-      ecl: "M", // Error correction level
-    });
-
-    setSvgString(qrcode.svg());
-  });
-
-  const copyToClipboard = async () => {
-    if (!props.uri) return;
-
-    try {
-      await navigator.clipboard.writeText(props.uri);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
-    } catch (error) {
-      console.error("Failed to copy:", error);
-    }
-  };
-
+export default function NostrConnectDialog(props: NostrConnectDialogProps) {
   return (
-    <Dialog open={!!props.uri} onOpenChange={props.onClose}>
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle class="text-center">
-            Scan with Nostr Connect App
-          </DialogTitle>
-        </DialogHeader>
-
-        <div class="flex flex-col items-center mb-4 mt-2">
-          <div innerHTML={svgString()} />
-
-          <div class="text-xs text-gray-500 break-all text-center max-w-sm">
-            {props.uri}
+    <Show when={props.uri}>
+      <Dialog open={!!props.uri} onOpenChange={() => props.onClose()}>
+        <DialogContent class="sm:max-w-md bg-white">
+          <div class="flex flex-col items-center justify-center p-6">
+            <h3 class="text-2xl font-bold mb-4">Connect to Remote Signer</h3>
+            <p class="mb-6 text-center">
+              Scan this QR code with your NIP-46 remote signer to connect.
+            </p>
+            <div class="p-2 bg-white rounded-lg shadow-md">
+              <QRCode data={props.uri || ""} width={240} height={240} />
+            </div>
+            <div class="mt-4 text-sm text-gray-500 break-all max-w-full overflow-hidden">
+              {props.uri}
+            </div>
           </div>
-        </div>
-
-        <DialogFooter class="flex flex-col sm:flex-row justify-center gap-2">
-          <Button onClick={copyToClipboard} class="flex w-full">
-            {copied() ? "Copied!" : "Copy URI"}
-          </Button>
-          <Button onClick={props.onClose} variant="outline" class="flex w-full">
-            Close
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+        </DialogContent>
+      </Dialog>
+    </Show>
   );
 }

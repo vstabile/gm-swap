@@ -4,13 +4,14 @@ import { from } from "solid-js";
 import { accounts } from "~/lib/accounts";
 import { SwapProposal } from "./proposeSwap";
 import { KINDS } from "~/lib/nostr";
+import { Swap } from "~/queries/swap";
 
-export function GenerateNonce(proposal: NostrEvent): Action {
+export function GenerateNonce(swap: Swap): Action {
   return async function* ({ factory }) {
     const account = from(accounts.active$);
     const created_at = Math.floor(Date.now() / 1000);
 
-    const proposalContent: SwapProposal = JSON.parse(proposal.content);
+    const proposalContent: SwapProposal = JSON.parse(swap.proposal.content);
 
     const myEvent = {
       pubkey: account()!.pubkey,
@@ -31,8 +32,8 @@ export function GenerateNonce(proposal: NostrEvent): Action {
       }),
       created_at,
       tags: [
-        ["e", proposal.id],
-        ["p", proposal.pubkey],
+        ["e", swap.id],
+        ["p", swap.adaptorPubkey],
         ["enc_s", encrypted_scalar],
       ],
     });

@@ -10,31 +10,39 @@ import {
   type Component,
 } from "solid-js";
 import Navbar from "./components/Navbar";
-import GmProposal from "./components/GmProposal";
 import { accounts } from "./lib/accounts";
-import { NostrConnectSigner } from "applesauce-signers";
-import { NostrConnectAccount } from "applesauce-accounts/accounts";
 import { Button } from "./components/ui/button";
 import { createRxForwardReq } from "rx-nostr";
 import { KINDS, rxNostr } from "./lib/nostr";
 import { eventStore } from "~/stores/eventStore";
 import { queryStore } from "~/stores/queryStore";
 import CreateProposal from "./components/CreateProposal";
-import { of, Subscription } from "rxjs";
+import { map, of, share, Subscription } from "rxjs";
 import { TextField, TextFieldInput } from "./components/ui/text-field";
 import { nip19 } from "nostr-tools";
-import { restoreSession, saveSession } from "./stores/session";
-import { AuthMethod, NIP46_PERMISSIONS, signIn } from "./lib/signIn";
+import { AuthMethod } from "./lib/signIn";
 import { fromReactive, waitForNip07 } from "./lib/utils";
 import NostrConnectDialog from "./components/NostrConnectDialog";
+import { Swaps } from "./queries/swap";
+import SwapCard from "./components/SwapCard";
+import { AuthProvider, useAuth } from "./contexts/authContext";
 
 const App: Component = () => {
+  return (
+    <AuthProvider>
+      <AppContent />
+    </AuthProvider>
+  );
+};
+
+const AppContent: Component = () => {
+  const { state, signIn, nip46Uri, setNip46Uri } = useAuth();
+
   const account = from(accounts.active$);
   const rxReq = createRxForwardReq();
   let subscription: Subscription;
 
   const [nsec, setNsec] = createSignal<string | undefined>();
-  const [nip46Uri, setNip46Uri] = createSignal<string | undefined>();
   const [nip07Available, setNip07Available] = createSignal(false);
 
   const nsecIsValid = createMemo(() => {
@@ -48,30 +56,35 @@ const App: Component = () => {
     }
   });
 
-  const proposalsSent = fromReactive(() =>
+  // Fetch all swaps involving the user
+  const swaps = createMemo(() =>
     account()
-      ? queryStore.timeline({
-          authors: [account().pubkey],
-          kinds: [KINDS.PROPOSAL],
-        })
+      ? queryStore.createQuery(Swaps, account()?.pubkey).pipe(share())
       : of([])
   );
 
-  const proposalsReceived = fromReactive(() =>
-    account()
-      ? queryStore.timeline({
-          "#p": [account().pubkey],
-          kinds: [KINDS.PROPOSAL],
-        })
-      : of([])
+  // Filter swaps where the user is the proposer
+  const swapsProposed = fromReactive(() =>
+    swaps().pipe(
+      map((swaps) =>
+        swaps.filter((swap) => swap.proposer === account()?.pubkey)
+      )
+    )
+  );
+
+  // Filter swaps where the user is the counterparty
+  const swapsReceived = fromReactive(() =>
+    swaps().pipe(
+      map((swaps) =>
+        swaps.filter((swap) => swap.counterparty === account()?.pubkey)
+      )
+    )
   );
 
   onMount(async () => {
     subscription = rxNostr.use(rxReq).subscribe(({ event }) => {
       eventStore.add(event);
     });
-
-    await restoreSession();
 
     waitForNip07().then((available) => {
       setNip07Available(available);
@@ -92,37 +105,7 @@ const App: Component = () => {
   });
 
   const handleSignIn = async (method: AuthMethod) => {
-    if (accounts.active) return;
-
-    const result = await signIn(method, nsec() || undefined);
-
-    if (result instanceof NostrConnectSigner) {
-      const signer = result;
-      const uri = signer.getNostrConnectURI({
-        name: "GM Swap",
-        permissions: NIP46_PERMISSIONS,
-      });
-
-      signer.waitForSigner().then(async () => {
-        setNip46Uri(undefined);
-
-        const pubkey = await signer.getPublicKey();
-
-        const account = new NostrConnectAccount(pubkey, signer);
-        accounts.addAccount(account);
-        accounts.setActive(account);
-
-        // TODO: Persist NIP-46 connections on reload
-      });
-
-      setNip46Uri(uri);
-    } else {
-      saveSession({
-        method: method,
-        pubkey: result.pubkey,
-        nsec: method === "nsec" ? nsec() : null,
-      });
-    }
+    await signIn(method, nsec() || undefined);
   };
 
   return (
@@ -140,72 +123,87 @@ const App: Component = () => {
             Schnorr adaptor signatures
           </p>
         </div>
-        <div class="flex flex-col w-full items-center pt-8 pb-8">
-          <Show when={account()}>
-            <CreateProposal />
-          </Show>
-          <Show when={!account()}>
-            <Button
-              onClick={() => handleSignIn("nip07")}
-              class="flex w-full max-w-sm mb-1"
-              disabled={!nip07Available()}
-            >
-              Sign In with Extension
-            </Button>
-            <Button
-              onClick={() => handleSignIn("nip46")}
-              class="flex w-full max-w-sm"
-            >
-              Sign In with Remote Signer
-            </Button>
-            <div class="flex gap-2 mt-2 w-full max-w-sm">
-              <TextField class="w-full">
-                <TextFieldInput
-                  type="text"
-                  class="bg-white h-8 sm:h-6"
-                  placeholder="nsec1..."
-                  onInput={(e) => setNsec((e.target as HTMLInputElement).value)}
-                />
-              </TextField>
-              <Button
-                class="rounded-md h-8 sm:h-6 px-2 text-base sm:text-xs"
-                onClick={() => handleSignIn("nsec")}
-                disabled={!nsecIsValid()}
-              >
-                Sign In
-              </Button>
-            </div>
-            <p class="text-xs text-gray-500 mt-2 max-w-sm text-center">
-              nsec is necessary to finalize swaps proposals sent by you, but is
-              not necessary for received swap proposals
-            </p>
-          </Show>
-        </div>
-        <Show when={proposalsSent() && proposalsSent().length > 0}>
-          <h2 class="text-center text-lg font-bold mb-2">Proposals Sent</h2>
-          <div class="flex flex-wrap justify-center gap-2 sm:gap-4">
-            <For each={proposalsSent()}>
-              {(proposal) => (
-                <div class="w-full md:w-[calc(50%-0.5rem)] xl:w-[calc(33.333%-0.75rem)]">
-                  <GmProposal proposal={proposal} />
-                </div>
-              )}
-            </For>
+        <Show when={state.isLoading}>
+          <div class="flex justify-center items-center py-10">
+            <div class="animate-spin h-8 w-8 border-4 border-blue-500 rounded-full border-t-transparent"></div>
+            <span class="ml-3">Loading...</span>
           </div>
         </Show>
-        <Show when={proposalsReceived() && proposalsReceived().length > 0}>
-          <h2 class="text-center text-lg font-bold mt-6 mb-2">
-            Proposals Received
-          </h2>
-          <div class="flex flex-wrap justify-center gap-2 sm:gap-4">
-            <For each={proposalsReceived()}>
-              {(proposal) => (
-                <div class="w-full md:w-[calc(50%-0.5rem)] xl:w-[calc(33.333%-0.75rem)]">
-                  <GmProposal proposal={proposal} />
-                </div>
+        <Show when={!state.isLoading}>
+          <div class="flex flex-col w-full items-center pt-8 pb-8">
+            <Show when={account()}>
+              <CreateProposal />
+            </Show>
+            <Show when={!account()}>
+              <Button
+                onClick={() => handleSignIn("nip07")}
+                class="flex w-full max-w-sm mb-1"
+                disabled={!nip07Available()}
+              >
+                Sign In with Extension
+              </Button>
+              <Button
+                onClick={() => handleSignIn("nip46")}
+                class="flex w-full max-w-sm"
+              >
+                Sign In with Remote Signer
+              </Button>
+              <div class="flex gap-2 mt-2 w-full max-w-sm">
+                <TextField class="w-full">
+                  <TextFieldInput
+                    type="text"
+                    class="bg-white h-8 sm:h-6"
+                    placeholder="nsec1..."
+                    onInput={(e) =>
+                      setNsec((e.target as HTMLInputElement).value)
+                    }
+                  />
+                </TextField>
+                <Button
+                  class="rounded-md h-8 sm:h-6 px-2 text-base sm:text-xs"
+                  onClick={() => handleSignIn("nsec")}
+                  disabled={!nsecIsValid()}
+                >
+                  Sign In
+                </Button>
+              </div>
+              {nsec() && !nsecIsValid() && (
+                <p class="text-xs text-red-500 mt-1 max-w-sm text-center">
+                  Please enter a valid nsec.
+                </p>
               )}
-            </For>
+              <p class="text-xs text-gray-500 mt-2 max-w-sm text-center">
+                nsec is necessary to finalize swaps proposals sent by you, but
+                is not necessary for received swap proposals
+              </p>
+            </Show>
           </div>
+          <Show when={swapsProposed() && swapsProposed().length > 0}>
+            <h2 class="text-center text-lg font-bold mb-2">Proposals Sent</h2>
+            <div class="flex flex-wrap justify-center gap-2 sm:gap-4">
+              <For each={swapsProposed()}>
+                {(swap) => (
+                  <div class="w-full md:w-[calc(50%-0.5rem)] xl:w-[calc(33.333%-0.75rem)]">
+                    <SwapCard swap={swap} />
+                  </div>
+                )}
+              </For>
+            </div>
+          </Show>
+          <Show when={swapsReceived() && swapsReceived().length > 0}>
+            <h2 class="text-center text-lg font-bold mt-6 mb-2">
+              Proposals Received
+            </h2>
+            <div class="flex flex-wrap justify-center gap-2 sm:gap-4">
+              <For each={swapsReceived()}>
+                {(swap) => (
+                  <div class="w-full md:w-[calc(50%-0.5rem)] xl:w-[calc(33.333%-0.75rem)]">
+                    <SwapCard swap={swap} />
+                  </div>
+                )}
+              </For>
+            </div>
+          </Show>
         </Show>
       </main>
       <div class="flex flex-col justify-center py-6 px-4 text-center text-sm text-gray-500 items-center">

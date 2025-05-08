@@ -6,16 +6,18 @@ import { nip19, NostrEvent } from "nostr-tools";
 import { StatusProps } from "../ProposalStatus";
 import { rxNostr } from "~/lib/nostr";
 import { Button } from "../ui/button";
-import { session } from "~/stores/session";
+import { useAuth } from "~/contexts/authContext";
 import { actions } from "~/actions/hub";
 import { RevokeProposal } from "~/actions/revokeProposal";
 import { GenerateAdaptors } from "~/actions/generateAdaptors";
 import { SignTakenEvent } from "~/actions/signTakenEvent";
+import { accounts } from "~/lib/accounts";
 
 export function ProposerStatus(props: StatusProps) {
   const [isRevoking, setIsRevoking] = createSignal(false);
   const [isExecuting, setIsExecuting] = createSignal(false);
   const [isPublishing, setIsPublishing] = createSignal(false);
+  const { state } = useAuth();
 
   async function revokeProposal() {
     setIsRevoking(true);
@@ -37,13 +39,19 @@ export function ProposerStatus(props: StatusProps) {
     setIsExecuting(true);
 
     try {
+      // Make sure we have an nsec
+      if (!state.nsec) {
+        throw new Error("No nsec available");
+      }
+
       await actions
-        .exec(GenerateAdaptors, props.nonceEvent, props.proposal)
+        .exec(GenerateAdaptors, props.nonceEvent, props.proposal, state.nsec)
         .forEach((event: NostrEvent) => {
           eventStore.add(event);
           rxNostr.send(event);
         });
-    } catch {
+    } catch (error) {
+      console.error("Execute swap error:", error);
     } finally {
       setIsExecuting(false);
     }
@@ -71,6 +79,10 @@ export function ProposerStatus(props: StatusProps) {
     }
   }
 
+  // Check if we have an nsec available for signing
+  const hasNsec = () =>
+    state.method === "nsec" && state.nsec !== null && !!accounts.active;
+
   return (
     <>
       <Show when={!props.nonceEvent}>
@@ -95,16 +107,16 @@ export function ProposerStatus(props: StatusProps) {
             <TooltipTrigger>
               <button
                 class={
-                  (session.nsec ? "bg-green-600" : "bg-gray-400") +
+                  (hasNsec() ? "bg-green-600" : "bg-gray-400") +
                   " text-white px-2 py-1 rounded-md"
                 }
                 onClick={executeSwap}
-                disabled={!session.nsec}
+                disabled={!hasNsec()}
               >
                 Swap
               </button>
             </TooltipTrigger>
-            {!session.nsec ? (
+            {!hasNsec() ? (
               <TooltipContent>
                 You need to sign in using your nsec in order to swap.
               </TooltipContent>

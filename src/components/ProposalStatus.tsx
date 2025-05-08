@@ -8,6 +8,7 @@ import { SwapNonceQuery, SwapAdaptorQuery } from "~/queries/swap";
 import { ProposerStatus } from "./ProposalStatus/ProposerStatus";
 import { CounterypartyStatus } from "./ProposalStatus/CounterpartyStatus";
 import { accounts } from "~/lib/accounts";
+import { getGivenId, getTakenId } from "~/lib/ass";
 
 export type StatusProps = {
   proposal: NostrEvent;
@@ -43,17 +44,11 @@ export default function ProposalStatus(props: { proposal: NostrEvent }) {
   });
 
   const giveId = createMemo(() => {
-    return getEventHash({
-      pubkey: props.proposal.pubkey,
-      ...JSON.parse(props.proposal.content)["give"]["template"],
-    });
+    return getGivenId(props.proposal);
   });
 
   const takeId = createMemo(() => {
-    return getEventHash({
-      pubkey: props.proposal.tags.filter((t) => t[0] === "p")[0][1],
-      ...JSON.parse(props.proposal.content)["take"]["template"],
-    });
+    return getTakenId(props.proposal);
   });
 
   const nonceEvent = from(

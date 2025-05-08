@@ -2,21 +2,17 @@ import { Action } from "applesauce-actions";
 import { nip19, NostrEvent } from "nostr-tools";
 import { computeAdaptors } from "~/lib/ass";
 import { KINDS } from "~/lib/nostr";
-import { session } from "~/stores/session";
+import { Swap } from "~/queries/swap";
 
-export function GenerateAdaptors(
-  nonceEvent: NostrEvent,
-  proposal: NostrEvent
-): Action {
+export function GenerateAdaptors(swap: Swap, nsec: string): Action {
   return async function* ({ factory }) {
     const created_at = Math.floor(Date.now() / 1000);
 
-    const key = nip19.decode(session.nsec).data as Uint8Array;
-    const proposalId = nonceEvent.tags.filter((t) => t[0] === "e")[0][1];
-    const nonce = JSON.parse(nonceEvent.content).nonce;
+    const key = nip19.decode(nsec).data as Uint8Array;
+    const nonce = swap.nonce;
 
     const content = {
-      adaptors: computeAdaptors(proposal, nonce, key),
+      adaptors: computeAdaptors(swap.proposal, nonce, key),
     };
 
     const draft = await factory.build({
@@ -24,9 +20,8 @@ export function GenerateAdaptors(
       content: JSON.stringify(content),
       created_at,
       tags: [
-        ["E", proposalId],
-        ["e", nonceEvent.id],
-        ["p", nonceEvent.pubkey],
+        ["E", swap.id],
+        ["p", swap.noncePubkey],
       ],
     });
 
