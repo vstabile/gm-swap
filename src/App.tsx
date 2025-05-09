@@ -17,7 +17,7 @@ import { KINDS, rxNostr } from "./lib/nostr";
 import { eventStore } from "~/stores/eventStore";
 import { queryStore } from "~/stores/queryStore";
 import CreateProposal from "./components/CreateProposal";
-import { map, of, share, Subscription } from "rxjs";
+import { debounceTime, map, of, share, Subscription } from "rxjs";
 import { TextField, TextFieldInput } from "./components/ui/text-field";
 import { nip19 } from "nostr-tools";
 import { AuthMethod } from "./lib/signIn";
@@ -110,8 +110,8 @@ const AppContent: Component = () => {
     if (!account()) return;
 
     rxReq.emit([
-      { authors: [account()!.pubkey], kinds: [KINDS.PROPOSAL], limit: 12 },
-      { "#p": [account()!.pubkey], kinds: [KINDS.PROPOSAL], limit: 12 },
+      { authors: [account()!.pubkey], kinds: [KINDS.PROPOSAL], limit: 6 },
+      { "#p": [account()!.pubkey], kinds: [KINDS.PROPOSAL], limit: 6 },
     ]);
   });
 

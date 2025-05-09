@@ -43,7 +43,6 @@ type SwapEvents = {
   taken: NostrEvent | undefined;
 };
 
-// Extract the transformation logic to a separate function
 export function projectSwap(events: SwapEvents): Swap {
   const { proposal, nonceEvent, adaptorEvent, given, taken } = events;
   const proposalContent = JSON.parse(proposal.content);
@@ -70,9 +69,9 @@ export function projectSwap(events: SwapEvents): Swap {
   if (taken) {
     state = "completed";
   } else if (given) {
-    state = "given-pending";
-  } else if (adaptors) {
     state = "taken-pending";
+  } else if (adaptors) {
+    state = "given-pending";
   } else if (nonce) {
     state = "adaptor-pending";
   } else {
@@ -86,8 +85,8 @@ export function projectSwap(events: SwapEvents): Swap {
     proposal,
     noncePubkey,
     adaptorPubkey,
-    nonce: nonce,
-    enc_s: enc_s,
+    nonce,
+    enc_s,
     adaptors,
     givenHash: getGivenId(proposal),
     takenHash: getTakenId(proposal),

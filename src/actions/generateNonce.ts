@@ -29,12 +29,12 @@ export function GenerateNonce(swap: Swap): Action {
       kind: KINDS.NONCE,
       content: JSON.stringify({
         nonce,
+        enc_s: encrypted_scalar,
       }),
       created_at,
       tags: [
         ["e", swap.id],
         ["p", swap.adaptorPubkey],
-        ["enc_s", encrypted_scalar],
       ],
     });
 

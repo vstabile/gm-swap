@@ -91,7 +91,8 @@ const adaptorContentSchema = z.object({
 const commonTagsSchema = z.array(z.array(z.string())).refine(
   (tags) => {
     const pTag = tags.find((tag) => tag[0] === "p");
-    const eTag = tags.find((tag) => tag[0] === "e");
+    const eTag =
+      tags.find((tag) => tag[0] === "e") || tags.find((tag) => tag[0] === "E");
     return (
       pTag !== undefined &&
       eTag !== undefined &&

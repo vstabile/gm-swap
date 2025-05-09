@@ -1,14 +1,15 @@
-import ProposalStatus from "./ProposalStatus";
 import { Swap } from "~/queries/swap";
 import { SwapSide } from "./SwapSide";
 import Timeline from "./Timeline";
-import { createEffect, from, Match, Show, Switch } from "solid-js";
+import { createEffect, from, Match, onCleanup, Switch } from "solid-js";
 import { accounts } from "~/lib/accounts";
 import SwapNonceActions from "./SwapNonceActions";
 import SwapAdaptorActions from "./SwapAdaptorActions";
-import { createRxForwardReq } from "rx-nostr";
 import { eventStore } from "~/stores/eventStore";
 import { KINDS, rxNostr } from "~/lib/nostr";
+import { TimelineLoader } from "applesauce-loaders";
+import { eventLoader } from "~/lib/loaders";
+import { createRxForwardReq } from "rx-nostr";
 
 export default function SwapCard(props: { swap: Swap }) {
   const account = from(accounts.active$);
@@ -59,7 +60,6 @@ export default function SwapCard(props: { swap: Swap }) {
             <SwapAdaptorActions swap={props.swap} />
           </Match>
         </Switch>
-        {/* <ProposalStatus proposal={props.swap.proposal} /> */}
       </div>
     </div>
   );

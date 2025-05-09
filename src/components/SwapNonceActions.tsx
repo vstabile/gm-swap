@@ -75,7 +75,7 @@ export default function SwapNonceActions(props: { swap: Swap }) {
           <button
             onClick={publishGivenEvent}
             disabled={isPublishing()}
-            class="flex items-center justify-center bg-gradient-to-br from-primary to-accent text-primary-foreground drop-shadow hover:from-green-600 hover:to-green-400 disabled:bg-green-600/80 text-white px-2 py-1 rounded-md w-full"
+            class="flex items-center justify-center bg-gradient-to-br from-primary to-accent text-primary-foreground drop-shadow text-white px-2 py-1 rounded-md w-full"
           >
             <Show when={isPublishing()} fallback="Publish GM">
               <LucideLoader class="w-4 h-4 animate-spin" />
