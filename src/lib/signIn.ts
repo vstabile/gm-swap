@@ -22,7 +22,18 @@ export const NIP46_PERMISSIONS = [
   `nip04_encrypt`,
 ];
 
-export async function signIn(method: AuthMethod, nsec?: string) {
+/**
+ * Authenticate a user with one of the supported methods
+ * @param method The authentication method to use
+ * @param nsec The nsec value if the method is 'nsec'
+ * @param relayUrl Optional custom NIP-46 relay URL for remote signing
+ * @returns The account or signer instance
+ */
+export async function signIn(
+  method: AuthMethod,
+  nsec?: string,
+  relayUrl?: string
+) {
   let account: BaseAccount<any, any, any>;
 
   if (method === "nip07" && window.nostr) {
@@ -42,7 +53,7 @@ export async function signIn(method: AuthMethod, nsec?: string) {
     let subscription: Subscription;
 
     const signer = new NostrConnectSigner({
-      relays: [NIP46_RELAY],
+      relays: [relayUrl || NIP46_RELAY],
       async onSubOpen(filters, relays, onEvent) {
         subscription = rxNostr
           .use(rxReq, { on: { relays } })
@@ -54,7 +65,6 @@ export async function signIn(method: AuthMethod, nsec?: string) {
         subscription.unsubscribe();
       },
       async onPublishEvent(event, relays) {
-        console.log("onPublishEvent", relays);
         rxNostr.send(event, { on: { relays } });
       },
     });
