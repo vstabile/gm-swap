@@ -6,6 +6,7 @@ import { Swap } from "~/queries/swap";
 import { SignTakenEvent } from "~/actions/signTakenEvent";
 import { useAuth } from "~/contexts/authContext";
 import { RevokeProposal } from "~/actions/revokeProposal";
+import { Tooltip, TooltipContent, TooltipTrigger } from "./ui/tooltip";
 
 export default function SwapAdaptorActions(props: { swap: Swap }) {
   const { state } = useAuth();
@@ -74,15 +75,22 @@ export default function SwapAdaptorActions(props: { swap: Swap }) {
           </div>
         </Match>
         <Match when={props.swap.state === "adaptor-pending"}>
-          <button
-            class="flex items-center justify-center border-green-700 bg-gradient-to-br from-green-600 to-green-500 drop-shadow hover:from-green-600 hover:to-green-400 disabled:from-green-600/80 disabled:to-green-600/80 text-white px-2 py-1 rounded-md w-full"
-            onClick={sendAdaptor}
-            disabled={isSendingAdaptor() || isRevoking()}
-          >
-            <Show when={isSendingAdaptor()} fallback="Send Adaptor Signature">
-              <LucideLoader class="w-3 h-3 mr-1 animate-spin" /> Sending
-            </Show>
-          </button>
+          <Tooltip>
+            <TooltipTrigger
+              class="flex items-center justify-center border-green-700 bg-gradient-to-br from-green-600 to-green-500 drop-shadow hover:from-green-600 hover:to-green-400 disabled:from-green-600/60 disabled:to-green-600/60 text-white px-2 py-1 rounded-md w-full"
+              onClick={sendAdaptor}
+              disabled={
+                isSendingAdaptor() || isRevoking() || state.method !== "nsec"
+              }
+            >
+              <Show when={isSendingAdaptor()} fallback="Send Adaptor Signature">
+                <LucideLoader class="w-3 h-3 mr-1 animate-spin" /> Sending
+              </Show>
+            </TooltipTrigger>
+            <TooltipContent>
+              Sign in with an nsec to generate the adaptor signature.
+            </TooltipContent>
+          </Tooltip>
           <button
             class="flex  items-center justify-center border border-red-600 text-red-600 px-2 py-1 rounded-md w-full hover:bg-red-600 hover:text-white disabled:bg-red-600/80 disabled:text-white"
             onClick={handleRevokeProposal}
