@@ -6,6 +6,7 @@ import { TextField, TextFieldInput } from "~/components/ui/text-field";
 import { NIP46_RELAY } from "~/lib/nostr";
 import { LucideLoader, LucideClipboardCopy } from "lucide-solid";
 import { useAuth } from "~/contexts/authContext";
+import { generateSecretKey, nip19 } from "nostr-tools";
 
 interface RemoteSignerDialogProps {
   isOpen: boolean;
@@ -16,6 +17,7 @@ export default function RemoteSignerDialog(props: RemoteSignerDialogProps) {
   const [bunkerUri, setBunkerUri] = createSignal("");
   const [relayUrl, setRelayUrl] = createSignal(NIP46_RELAY);
   const [bunkerIsLoading, setBunkerIsLoading] = createSignal(false);
+  const nsec = nip19.nsecEncode(generateSecretKey());
 
   const {
     signIn,
@@ -37,7 +39,7 @@ export default function RemoteSignerDialog(props: RemoteSignerDialogProps) {
   const handleRelayChange = (newRelay: string) => {
     setRemoteSignerRelay(newRelay);
     closeNip46Signer();
-    signIn("nip46", undefined, remoteSignerRelay());
+    signIn("nip46", nsec, undefined, remoteSignerRelay());
   };
 
   onMount(() => {
@@ -49,7 +51,7 @@ export default function RemoteSignerDialog(props: RemoteSignerDialogProps) {
   });
 
   createEffect(() => {
-    if (props.isOpen) signIn("nip46", undefined, remoteSignerRelay());
+    if (props.isOpen) signIn("nip46", nsec, undefined, remoteSignerRelay());
   });
 
   return (

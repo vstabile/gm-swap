@@ -7,6 +7,7 @@ export type AuthState = {
   method: AuthMethod | null;
   pubkey: string | null;
   nsec: string | null;
+  remoteRelay: string | null;
   isLoading: boolean;
 };
 
@@ -14,6 +15,7 @@ export const defaultState: AuthState = {
   method: null,
   pubkey: null,
   nsec: null,
+  remoteRelay: null,
   isLoading: true,
 };
 
@@ -23,7 +25,8 @@ export type AuthContextValue = {
   signIn: (
     method: AuthMethod,
     nsec?: string,
-    relayUrl?: string
+    pubkey?: string,
+    remoteRelay?: string
   ) => Promise<void>;
   signOut: () => void;
   isAuthenticated: Accessor<boolean>;

@@ -2,7 +2,7 @@ import { createResource, createSignal, JSX } from "solid-js";
 import { createStore } from "solid-js/store";
 import { AuthMethod, signIn, NIP46_PERMISSIONS } from "~/lib/signIn";
 import { accounts } from "~/lib/accounts";
-import { NostrConnectSigner } from "applesauce-signers";
+import { NostrConnectSigner, SimpleSigner } from "applesauce-signers";
 import { NostrConnectAccount } from "applesauce-accounts/accounts";
 import { waitForNip07 } from "~/lib/utils";
 import { NIP46_RELAY, rxNostr } from "~/lib/nostr";
@@ -13,6 +13,7 @@ import {
   AuthContextValue,
   defaultState,
 } from "~/contexts/authContext";
+import { generateSecretKey, nip19 } from "nostr-tools";
 
 export function AuthProvider(props: { children: JSX.Element }) {
   const [state, setState] = createStore(defaultState);
@@ -58,15 +59,19 @@ export function AuthProvider(props: { children: JSX.Element }) {
     method: AuthMethod;
     pubkey: string;
     nsec: string | null;
+    remoteRelay?: string;
   }) => {
     setState({
       method: data.method,
       pubkey: data.pubkey,
       nsec: data.nsec,
+      remoteRelay: data.remoteRelay,
       isLoading: false,
     });
 
-    localStorage.setItem("auth", JSON.stringify(data));
+    const remoteRelay = data.remoteRelay || remoteSignerRelay();
+
+    localStorage.setItem("auth", JSON.stringify({ ...data, remoteRelay }));
   };
 
   const clearSession = () => {
@@ -83,7 +88,8 @@ export function AuthProvider(props: { children: JSX.Element }) {
   const handleSignIn = async (
     method: AuthMethod,
     nsec?: string,
-    relayUrl?: string
+    pubkey?: string,
+    remoteRelay?: string
   ) => {
     if (accounts.active) return;
 
@@ -91,8 +97,8 @@ export function AuthProvider(props: { children: JSX.Element }) {
 
     try {
       // Use the provided relay or the current relay from state
-      const relay = relayUrl || remoteSignerRelay();
-      const result = await signIn(method, nsec, relay);
+      const relay = remoteRelay || remoteSignerRelay();
+      const result = await signIn(method, nsec, pubkey, relay);
 
       if (result instanceof NostrConnectSigner) {
         const signer = result;
@@ -107,13 +113,19 @@ export function AuthProvider(props: { children: JSX.Element }) {
         try {
           // Wait for signer to connect
           await waitForSigner(signer, nip46AbortController().signal);
+          signer.connect();
 
           const pubkey = await signer.getPublicKey();
           const account = new NostrConnectAccount(pubkey, signer);
           accounts.addAccount(account);
           accounts.setActive(account);
 
-          setState({ isLoading: false });
+          saveSession({
+            method,
+            pubkey,
+            nsec,
+          });
+
           signInSuccessCallback?.();
         } catch (error) {
           if (state.isLoading) {
@@ -167,9 +179,15 @@ export function AuthProvider(props: { children: JSX.Element }) {
 
     setState({ isLoading: true });
 
+    const key = generateSecretKey();
+    const nsec = nip19.nsecEncode(key);
+    const simpleSigner = new SimpleSigner(key);
+    const { relays } = NostrConnectSigner.parseBunkerURI(bunkerUri);
+
     try {
       const signer = await NostrConnectSigner.fromBunkerURI(bunkerUri, {
         permissions: NIP46_PERMISSIONS,
+        signer: simpleSigner,
         subscriptionMethod: (relays, filters) => {
           const rxReq = createRxForwardReq();
 
@@ -193,7 +211,12 @@ export function AuthProvider(props: { children: JSX.Element }) {
         accounts.addAccount(account);
         accounts.setActive(account);
 
-        setState({ isLoading: false });
+        saveSession({
+          method: "nip46",
+          pubkey,
+          nsec,
+          remoteRelay: relays[0],
+        });
         signInSuccessCallback?.();
       } else {
         setState({ isLoading: false });
@@ -239,7 +262,12 @@ export function AuthProvider(props: { children: JSX.Element }) {
     }
 
     try {
-      await handleSignIn(storedData.method, storedData.nsec || undefined);
+      await handleSignIn(
+        storedData.method,
+        storedData.nsec || undefined,
+        storedData.pubkey || undefined,
+        storedData.remoteRelay || undefined
+      );
     } catch (error) {
       console.error("Error restoring auth:", error);
       setState({ isLoading: false });

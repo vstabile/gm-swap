@@ -4,7 +4,7 @@ import {
   NostrConnectSigner,
   SimpleSigner,
 } from "applesauce-signers";
-import { nip19 } from "nostr-tools";
+import { generateSecretKey, nip19 } from "nostr-tools";
 import { accounts } from "./accounts";
 import { KINDS, NIP46_RELAY, rxNostr } from "./nostr";
 import { createRxForwardReq } from "rx-nostr";
@@ -26,13 +26,14 @@ export const NIP46_PERMISSIONS = [
  * Authenticate a user with one of the supported methods
  * @param method The authentication method to use
  * @param nsec The nsec value if the method is 'nsec'
- * @param relayUrl Optional custom NIP-46 relay URL for remote signing
+ * @param remoteRelay Optional custom NIP-46 relay URL for remote signing
  * @returns The account or signer instance
  */
 export async function signIn(
   method: AuthMethod,
   nsec?: string,
-  relayUrl?: string
+  pubkey?: string,
+  remoteRelay?: string
 ) {
   let account: BaseAccount<any, any, any>;
 
@@ -40,7 +41,7 @@ export async function signIn(
     const signer = new ExtensionSigner();
     const pubkey = await signer.getPublicKey();
     account = new ExtensionAccount(pubkey, signer);
-  } else if (method === "nsec" && nsec) {
+  } else if ("nsec" === method && nsec) {
     const decoded = nip19.decode(nsec);
     if (decoded.type !== "nsec") throw new Error("Invalid nsec");
 
@@ -49,8 +50,15 @@ export async function signIn(
     const pubkey = await signer.getPublicKey();
     account = new SimpleAccount(pubkey, signer);
   } else if (method === "nip46") {
+    let key = nsec
+      ? (nip19.decode(nsec).data as Uint8Array<ArrayBufferLike>)
+      : generateSecretKey();
+    const simpleSigner = new SimpleSigner(key);
+
     const signer = new NostrConnectSigner({
-      relays: [relayUrl || NIP46_RELAY],
+      pubkey,
+      relays: [remoteRelay || NIP46_RELAY],
+      signer: simpleSigner,
       subscriptionMethod: (relays, filters) => {
         const rxReq = createRxForwardReq();
 
