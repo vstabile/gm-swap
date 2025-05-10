@@ -17,7 +17,7 @@ import { KINDS, rxNostr } from "./lib/nostr";
 import { eventStore } from "~/stores/eventStore";
 import { queryStore } from "~/stores/queryStore";
 import CreateProposal from "./components/CreateProposal";
-import { map, of, share, Subscription } from "rxjs";
+import { debounceTime, map, of, share, Subscription, tap } from "rxjs";
 import { TextField, TextFieldInput } from "./components/ui/text-field";
 import { nip19 } from "nostr-tools";
 import { AuthMethod } from "./lib/signIn";
@@ -27,7 +27,6 @@ import { Swaps } from "./queries/swap";
 import SwapCard from "./components/SwapCard";
 import { useAuth } from "./contexts/authContext";
 import { AuthProvider } from "./components/AuthProvider";
-import { onlyEvents } from "applesauce-relay";
 
 const App: Component = () => {
   return (
@@ -46,6 +45,7 @@ const AppContent: Component = () => {
 
   const [nsec, setNsec] = createSignal<string | undefined>();
   const [nip07Available, setNip07Available] = createSignal(false);
+  const [proposalIds, setProposalIds] = createSignal<string[]>([]);
   const [remoteSignerDialogIsOpen, setRemoteSignerDialogIsOpen] =
     createSignal(false);
 
@@ -81,7 +81,9 @@ const AppContent: Component = () => {
     swaps().pipe(
       map((swaps) =>
         swaps.filter((swap) => swap.counterparty === account()?.pubkey)
-      )
+      ),
+      debounceTime(100),
+      tap((swaps) => setProposalIds(swaps.map((swap) => swap.id)))
     )
   );
 
@@ -105,6 +107,11 @@ const AppContent: Component = () => {
     rxReq.emit([
       { authors: [account()!.pubkey], kinds: [KINDS.PROPOSAL], limit: 6 },
       { "#p": [account()!.pubkey], kinds: [KINDS.PROPOSAL], limit: 6 },
+      {
+        "#k": [KINDS.PROPOSAL.toString()],
+        "#e": proposalIds(),
+        kinds: [KINDS.DELETION],
+      },
     ]);
   });
 

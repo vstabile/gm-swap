@@ -61,12 +61,7 @@ export default function CreateProposal() {
   async function handleSubmit() {
     setIsSubmitting(true);
 
-    await actions
-      .exec(ProposeSwap, pubkey(), proposal())
-      .forEach((event: NostrEvent) => {
-        eventStore.add(event);
-        rxNostr.send(event);
-      });
+    await actions.run(ProposeSwap, pubkey(), proposal());
 
     setIsSubmitting(false);
     setNpub("");

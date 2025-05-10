@@ -1,35 +1,19 @@
 import { LucideHourglass, LucideLoader } from "lucide-solid";
-import { NostrEvent } from "nostr-tools";
-import { createMemo, createSignal, from, Match, Show, Switch } from "solid-js";
+import { createSignal, Match, Show, Switch } from "solid-js";
 import { GenerateNonce } from "~/actions/generateNonce";
 import { actions } from "~/actions/hub";
 import { signGivenEvent } from "~/actions/signGivenEvent";
-import { accounts } from "~/lib/accounts";
-import { rxNostr } from "~/lib/nostr";
 import { Swap } from "~/queries/swap";
-import { eventStore } from "~/stores/eventStore";
 
 export default function SwapNonceActions(props: { swap: Swap }) {
-  const account = from(accounts.active$);
   const [isSendingNonce, setIsSendingNonce] = createSignal(false);
   const [isPublishing, setIsPublishing] = createSignal(false);
-
-  const event = createMemo(() => {
-    return account().pubkey === props.swap.noncePubkey
-      ? props.swap.taken
-      : props.swap.given;
-  });
 
   async function sendNonce() {
     setIsSendingNonce(true);
 
     try {
-      await actions
-        .exec(GenerateNonce, props.swap)
-        .forEach((event: NostrEvent) => {
-          eventStore.add(event);
-          rxNostr.send(event);
-        });
+      await actions.run(GenerateNonce, props.swap);
     } catch {
     } finally {
       setIsSendingNonce(false);
@@ -40,12 +24,7 @@ export default function SwapNonceActions(props: { swap: Swap }) {
     setIsPublishing(true);
 
     try {
-      await actions
-        .exec(signGivenEvent, props.swap)
-        .forEach((event: NostrEvent) => {
-          eventStore.add(event);
-          rxNostr.send(event);
-        });
+      await actions.run(signGivenEvent, props.swap);
     } catch {
     } finally {
       setIsPublishing(false);
