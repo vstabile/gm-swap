@@ -1,7 +1,7 @@
 import { Swap } from "~/queries/swap";
 import { SwapSide } from "./SwapSide";
 import Timeline from "./Timeline";
-import { createEffect, from, Match, Switch } from "solid-js";
+import { createEffect, from, Match, Show, Switch } from "solid-js";
 import { accounts } from "~/lib/accounts";
 import SwapNonceActions from "./SwapNonceActions";
 import SwapAdaptorActions from "./SwapAdaptorActions";
@@ -35,7 +35,7 @@ export default function SwapCard(props: { swap: Swap }) {
   });
 
   return (
-    <div class="flex flex-col bg-white rounded-lg border border-gray-200 text-sm">
+    <div class="flex flex-col bg-white rounded-lg border border-gray-200 text-sm sm:hover:scale-105 transition-transform duration-200 ease-in-out">
       <div class="flex flex-row justify-between border-b border-gray-200">
         <SwapSide pubkey={props.swap.proposer} swap={props.swap} />
         <div class="border-l border-gray-200 h-auto"></div>
