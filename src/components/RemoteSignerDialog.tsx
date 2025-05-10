@@ -4,7 +4,7 @@ import QRCode from "~/components/QRCode";
 import { Button } from "~/components/ui/button";
 import { TextField, TextFieldInput } from "~/components/ui/text-field";
 import { NIP46_RELAY } from "~/lib/nostr";
-import { LucideLoader } from "lucide-solid";
+import { LucideLoader, LucideClipboardCopy } from "lucide-solid";
 import { useAuth } from "~/contexts/authContext";
 
 interface RemoteSignerDialogProps {
@@ -64,8 +64,10 @@ export default function RemoteSignerDialog(props: RemoteSignerDialogProps) {
       }}
     >
       <DialogContent class="sm:max-w-lg bg-white">
-        <div class="flex flex-col items-center justify-center p-6">
-          <h3 class="text-2xl font-bold mb-4">Connect to Remote Signer</h3>
+        <div class="flex flex-col items-center justify-center">
+          <h3 class="text-xl sm:text-2xl font-bold mb-4">
+            Connect to Remote Signer
+          </h3>
           <p class="mb-4 text-center">
             Scan this QR code with your NIP-46 remote signer.
           </p>
@@ -95,13 +97,24 @@ export default function RemoteSignerDialog(props: RemoteSignerDialogProps) {
               </Button>
             </div>
           </div>
-          <div class="mt-4 text-xs text-gray-500 break-all max-w-full overflow-hidden">
-            {nostrConnectUri()}
+          <div class="mt-4 text-xs text-gray-500 break-all max-w-full overflow-hidden flex items-center gap-2">
+            <span class="flex-1">{nostrConnectUri()}</span>
+            <button
+              class="p-1.5 hover:bg-gray-100 rounded-md transition-colors"
+              onClick={() => {
+                if (nostrConnectUri()) {
+                  navigator.clipboard.writeText(nostrConnectUri());
+                }
+              }}
+              title="Copy to clipboard"
+            >
+              <LucideClipboardCopy class="w-4 h-4" />
+            </button>
           </div>
 
-          <div class="flex items-center w-full my-6">
+          <div class="flex items-center w-full my-4">
             <div class="flex-grow h-px bg-gray-300"></div>
-            <span class="mx-4 text-gray-500">OR</span>
+            <span class="mx-4 text-gray-500 text-sm">OR</span>
             <div class="flex-grow h-px bg-gray-300"></div>
           </div>
 
