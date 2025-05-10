@@ -7,7 +7,7 @@ import { NostrConnectAccount } from "applesauce-accounts/accounts";
 import { waitForNip07 } from "~/lib/utils";
 import { NIP46_RELAY, rxNostr } from "~/lib/nostr";
 import { createRxForwardReq } from "rx-nostr";
-import { Subscription } from "rxjs";
+import { map } from "rxjs";
 import {
   AuthContext,
   AuthContextValue,
@@ -168,24 +168,20 @@ export function AuthProvider(props: { children: JSX.Element }) {
     setState({ isLoading: true });
 
     try {
-      console.log("Connecting with bunker", bunkerUri, NIP46_PERMISSIONS);
-
-      const rxReq = createRxForwardReq();
-      let subscription: Subscription;
-
       const signer = await NostrConnectSigner.fromBunkerURI(bunkerUri, {
         permissions: NIP46_PERMISSIONS,
-        onSubOpen: async (filters, relays, onEvent) => {
-          subscription = rxNostr
-            .use(rxReq, { on: { relays } })
-            .subscribe(({ event }) => onEvent(event));
+        subscriptionMethod: (relays, filters) => {
+          const rxReq = createRxForwardReq();
 
-          rxReq.emit(filters);
+          queueMicrotask(() => {
+            rxReq.emit(filters);
+          });
+
+          return rxNostr
+            .use(rxReq, { on: { relays } })
+            .pipe(map((packet) => packet.event));
         },
-        onSubClose: async () => {
-          subscription.unsubscribe();
-        },
-        onPublishEvent: async (event, relays) => {
+        publishMethod: async (relays, event) => {
           rxNostr.send(event, { on: { relays } });
         },
       });

@@ -1,4 +1,4 @@
-import { createSignal, onMount } from "solid-js";
+import { createEffect, createSignal, onMount } from "solid-js";
 import { Dialog, DialogContent } from "~/components/ui/dialog";
 import QRCode from "~/components/QRCode";
 import { Button } from "~/components/ui/button";
@@ -9,11 +9,7 @@ import { useAuth } from "~/contexts/authContext";
 
 interface RemoteSignerDialogProps {
   isOpen: boolean;
-  nostrConnectUri?: string;
-  remoteSignerRelay?: string;
   onOpenChange: (isOpen: boolean) => void;
-  onBunkerConnect?: (bunkerUri: string) => void;
-  onRelayChange?: (relay: string) => void;
 }
 
 export default function RemoteSignerDialog(props: RemoteSignerDialogProps) {
@@ -21,20 +17,27 @@ export default function RemoteSignerDialog(props: RemoteSignerDialogProps) {
   const [relayUrl, setRelayUrl] = createSignal(NIP46_RELAY);
   const [bunkerIsLoading, setBunkerIsLoading] = createSignal(false);
 
-  const { setOnSignInSuccess } = useAuth();
+  const {
+    signIn,
+    nostrConnectUri,
+    setOnSignInSuccess,
+    closeNip46Signer,
+    remoteSignerRelay,
+    setRemoteSignerRelay,
+    connectWithBunker,
+  } = useAuth();
 
   const handleBunkerConnect = () => {
-    if (bunkerUri() && props.onBunkerConnect) {
-      props.onBunkerConnect(bunkerUri());
+    if (bunkerUri()) {
+      connectWithBunker(bunkerUri());
       setBunkerIsLoading(true);
     }
   };
 
   const handleRelayChange = (newRelay: string) => {
-    setRelayUrl(newRelay);
-    if (props.onRelayChange) {
-      props.onRelayChange(newRelay);
-    }
+    setRemoteSignerRelay(newRelay);
+    closeNip46Signer();
+    signIn("nip46", undefined, remoteSignerRelay());
   };
 
   onMount(() => {
@@ -45,10 +48,20 @@ export default function RemoteSignerDialog(props: RemoteSignerDialogProps) {
     });
   });
 
+  createEffect(() => {
+    if (props.isOpen) signIn("nip46", undefined, remoteSignerRelay());
+  });
+
   return (
     <Dialog
       open={props.isOpen}
-      onOpenChange={(isOpen) => !isOpen && props.onOpenChange(isOpen)}
+      onOpenChange={(isOpen) => {
+        if (!isOpen) {
+          closeNip46Signer();
+          setBunkerIsLoading(false);
+        }
+        props.onOpenChange(isOpen);
+      }}
     >
       <DialogContent class="sm:max-w-lg bg-white">
         <div class="flex flex-col items-center justify-center p-6">
@@ -58,11 +71,7 @@ export default function RemoteSignerDialog(props: RemoteSignerDialogProps) {
           </p>
 
           <div class="bg-white rounded-lg shadow-md">
-            <QRCode
-              data={props.nostrConnectUri || ""}
-              width={240}
-              height={240}
-            />
+            <QRCode data={nostrConnectUri() || ""} width={240} height={240} />
             <div class="flex flex-row w-[240px] pt-0 p-2 gap-2">
               <TextField class="flex w-full">
                 <TextFieldInput
@@ -80,14 +89,14 @@ export default function RemoteSignerDialog(props: RemoteSignerDialogProps) {
                 class="flex p-3 h-8"
                 variant="outline"
                 onClick={() => handleRelayChange(relayUrl())}
-                disabled={relayUrl() === props.remoteSignerRelay}
+                disabled={relayUrl() === remoteSignerRelay()}
               >
                 Set
               </Button>
             </div>
           </div>
           <div class="mt-4 text-xs text-gray-500 break-all max-w-full overflow-hidden">
-            {props.nostrConnectUri}
+            {nostrConnectUri()}
           </div>
 
           <div class="flex items-center w-full my-6">

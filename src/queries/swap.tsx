@@ -1,4 +1,4 @@
-import { EventStore, IEventStore, Query } from "applesauce-core";
+import { IEventStore, Query } from "applesauce-core";
 import { NostrEvent } from "nostr-tools";
 import { KINDS } from "../lib/nostr";
 import { combineLatest, map, Observable, of, switchMap } from "rxjs";
@@ -122,54 +122,45 @@ export function fetchSwapEvents(
 }
 
 export function Swaps(pubkey: string): Query<Swap[]> {
-  return {
-    key: `swaps-${pubkey}`,
-    run: (store) =>
-      store
-        .timeline([
-          { authors: [pubkey], kinds: [KINDS.PROPOSAL] },
-          {
-            "#p": [pubkey],
-            kinds: [KINDS.PROPOSAL],
-          },
-        ])
-        .pipe(
-          // Fetch all events related to each proposal
-          switchMap((proposals) => {
-            const swapEvents$ = proposals.map((proposal) =>
-              fetchSwapEvents(store, proposal)
-            );
+  return (store) =>
+    store
+      .timeline([
+        { authors: [pubkey], kinds: [KINDS.PROPOSAL] },
+        {
+          "#p": [pubkey],
+          kinds: [KINDS.PROPOSAL],
+        },
+      ])
+      .pipe(
+        // Fetch all events related to each proposal
+        switchMap((proposals) => {
+          const swapEvents$ = proposals.map((proposal) =>
+            fetchSwapEvents(store, proposal)
+          );
 
-            return swapEvents$.length > 0 ? combineLatest(swapEvents$) : of([]);
-          }),
-          // Project the swap events into Swap models
-          map((swapEventsArray) => swapEventsArray.map(projectSwap))
-        ),
-  };
+          return swapEvents$.length > 0 ? combineLatest(swapEvents$) : of([]);
+        }),
+        // Project the swap events into Swap models
+        map((swapEventsArray) => swapEventsArray.map(projectSwap))
+      );
 }
 
 /** A query that returns all reactions to an event (supports replaceable events) */
 export function SwapNonceQuery(proposal: NostrEvent): Query<NostrEvent> {
-  return {
-    key: `swap-nonce-${proposal.id}`,
-    run: (events) =>
-      events.filters([
-        {
-          kinds: [KINDS.NONCE],
-          "#e": [proposal.id],
-          authors: [
-            proposal.pubkey,
-            proposal.tags.filter((t) => t[0] === "p")[0][1],
-          ],
-        },
-      ]),
-  };
+  return (events) =>
+    events.filters([
+      {
+        kinds: [KINDS.NONCE],
+        "#e": [proposal.id],
+        authors: [
+          proposal.pubkey,
+          proposal.tags.filter((t) => t[0] === "p")[0][1],
+        ],
+      },
+    ]);
 }
 
 export function SwapAdaptorQuery(proposal: NostrEvent): Query<NostrEvent> {
-  return {
-    key: `swap-adaptor-${proposal.id}`,
-    run: (events) =>
-      events.filters([{ kinds: [KINDS.ADAPTOR], "#E": [proposal.id] }]),
-  };
+  return (events) =>
+    events.filters([{ kinds: [KINDS.ADAPTOR], "#E": [proposal.id] }]);
 }

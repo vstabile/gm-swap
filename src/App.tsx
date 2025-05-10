@@ -17,7 +17,7 @@ import { KINDS, rxNostr } from "./lib/nostr";
 import { eventStore } from "~/stores/eventStore";
 import { queryStore } from "~/stores/queryStore";
 import CreateProposal from "./components/CreateProposal";
-import { debounceTime, map, of, share, Subscription } from "rxjs";
+import { map, of, share, Subscription } from "rxjs";
 import { TextField, TextFieldInput } from "./components/ui/text-field";
 import { nip19 } from "nostr-tools";
 import { AuthMethod } from "./lib/signIn";
@@ -27,6 +27,7 @@ import { Swaps } from "./queries/swap";
 import SwapCard from "./components/SwapCard";
 import { useAuth } from "./contexts/authContext";
 import { AuthProvider } from "./components/AuthProvider";
+import { onlyEvents } from "applesauce-relay";
 
 const App: Component = () => {
   return (
@@ -37,15 +38,7 @@ const App: Component = () => {
 };
 
 const AppContent: Component = () => {
-  const {
-    state,
-    signIn,
-    nostrConnectUri,
-    connectWithBunker,
-    setRemoteSignerRelay,
-    remoteSignerRelay,
-    closeNip46Signer,
-  } = useAuth();
+  const { state, signIn } = useAuth();
 
   const account = from(accounts.active$);
   const rxReq = createRxForwardReq();
@@ -116,8 +109,7 @@ const AppContent: Component = () => {
   });
 
   const handleSignIn = async (method: AuthMethod) => {
-    if (method === "nip46") setRemoteSignerDialogIsOpen(true);
-    await signIn(method, nsec() || undefined, remoteSignerRelay());
+    await signIn(method, nsec() || undefined);
   };
 
   return (
@@ -155,7 +147,7 @@ const AppContent: Component = () => {
                 Sign In with Extension
               </Button>
               <Button
-                onClick={() => handleSignIn("nip46")}
+                onClick={() => setRemoteSignerDialogIsOpen(true)}
                 class="flex w-full max-w-sm"
               >
                 Sign In with Remote Signer
@@ -241,20 +233,7 @@ const AppContent: Component = () => {
       </div>
       <RemoteSignerDialog
         isOpen={remoteSignerDialogIsOpen()}
-        nostrConnectUri={nostrConnectUri()}
-        remoteSignerRelay={remoteSignerRelay()}
-        onOpenChange={(isOpen) => {
-          setRemoteSignerDialogIsOpen(isOpen);
-          if (!isOpen) closeNip46Signer();
-        }}
-        onBunkerConnect={(bunkerUri) => {
-          connectWithBunker(bunkerUri);
-        }}
-        onRelayChange={(relay) => {
-          setRemoteSignerRelay(relay);
-          closeNip46Signer();
-          handleSignIn("nip46");
-        }}
+        onOpenChange={(isOpen) => setRemoteSignerDialogIsOpen(isOpen)}
       />
     </div>
   );

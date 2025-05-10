@@ -1,16 +1,25 @@
-import { ReplaceableLoader, SingleEventLoader } from "applesauce-loaders";
-import { rxNostr } from "./nostr";
+import { ReplaceableLoader } from "applesauce-loaders";
+import { RELAYS, rxNostr } from "./nostr";
 import { eventStore } from "~/stores/eventStore";
+import { Filter, NostrEvent } from "nostr-tools";
+import { map, Observable } from "rxjs";
+import { createRxOneshotReq } from "rx-nostr";
 
-export const replaceableLoader = new ReplaceableLoader(rxNostr);
+function nostrRequest(
+  relays: string[],
+  filters: Filter[],
+  id?: string
+): Observable<NostrEvent> {
+  const req = createRxOneshotReq({ filters, rxReqId: id });
+  return rxNostr
+    .use(req, { on: { relays } })
+    .pipe(map((packet) => packet.event));
+}
 
-export const eventLoader = new SingleEventLoader(rxNostr);
-
-// Start the loader and send any events to the event store
-replaceableLoader.subscribe((packet) => {
-  eventStore.add(packet.event, packet.from);
+export const replaceableLoader = new ReplaceableLoader(nostrRequest, {
+  lookupRelays: RELAYS,
 });
 
-eventLoader.subscribe((packet) => {
-  eventStore.add(packet.event, packet.from);
+replaceableLoader.subscribe((event) => {
+  eventStore.add(event);
 });

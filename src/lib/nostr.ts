@@ -6,13 +6,15 @@ export const rxNostr = createRxNostr({
   verifier: noopVerifier,
 });
 
-rxNostr.setDefaultRelays([
+export const RELAYS = [
   "wss://relay.primal.net",
   "wss://relay.damus.io",
   "wss://nostr.wine",
   "wss://relay.nostr.band",
   "wss://relay.vertexlab.io",
-]);
+];
+
+rxNostr.setDefaultRelays(RELAYS);
 
 export const DVM_RELAY = "wss://relay.vertexlab.io";
 

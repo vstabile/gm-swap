@@ -8,7 +8,7 @@ import { nip19 } from "nostr-tools";
 import { accounts } from "./accounts";
 import { KINDS, NIP46_RELAY, rxNostr } from "./nostr";
 import { createRxForwardReq } from "rx-nostr";
-import { Subscription } from "rxjs";
+import { map } from "rxjs";
 import { BaseAccount } from "applesauce-accounts";
 
 export type AuthMethod = "nip07" | "nsec" | "nip46";
@@ -49,22 +49,20 @@ export async function signIn(
     const pubkey = await signer.getPublicKey();
     account = new SimpleAccount(pubkey, signer);
   } else if (method === "nip46") {
-    const rxReq = createRxForwardReq();
-    let subscription: Subscription;
-
     const signer = new NostrConnectSigner({
       relays: [relayUrl || NIP46_RELAY],
-      async onSubOpen(filters, relays, onEvent) {
-        subscription = rxNostr
-          .use(rxReq, { on: { relays } })
-          .subscribe(({ event }) => onEvent(event));
+      subscriptionMethod: (relays, filters) => {
+        const rxReq = createRxForwardReq();
 
-        rxReq.emit(filters);
+        queueMicrotask(() => {
+          rxReq.emit(filters);
+        });
+
+        return rxNostr
+          .use(rxReq, { on: { relays } })
+          .pipe(map((packet) => packet.event));
       },
-      async onSubClose() {
-        subscription.unsubscribe();
-      },
-      async onPublishEvent(event, relays) {
+      publishMethod: (relays, event) => {
         rxNostr.send(event, { on: { relays } });
       },
     });
