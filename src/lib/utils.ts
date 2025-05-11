@@ -12,9 +12,17 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
 
+function truncate(value: string, length: number = 15) {
+  if (value.length <= length) {
+    return value;
+  }
+
+  return value.slice(0, length - 5) + "..." + value.slice(-5);
+}
+
 export function truncatedNpub(pubkey: string) {
   const npub = pubkey.startsWith("npub1") ? pubkey : nip19.npubEncode(pubkey);
-  return npub.slice(0, 8) + "..." + npub.slice(-5);
+  return truncate(npub);
 }
 
 export function fromReactive<T>(getObservable: () => Observable<T>) {
@@ -78,7 +86,7 @@ export function formatContent(content: string) {
 
     const npub = match.replace("nostr:", "");
     const profile = npubProfiles().get(npub);
-    const displayName = profileName(profile, npub);
+    const displayName = truncate(profileName(profile, npub));
 
     return `<a href="https://njump.me/${npub}" target="_blank" rel="noopener noreferrer" class="text-blue-500 hover:underline">${displayName}</a>`;
   });
