@@ -261,6 +261,17 @@ export function AuthProvider(props: { children: JSX.Element }) {
       }
     }
 
+    // Abort restoring NIP-46 session if it takes too long
+    if (storedData.method === "nip46") {
+      setTimeout(() => {
+        if (state.isLoading) {
+          nip46AbortController().abort();
+          setNip46AbortController(new AbortController());
+          clearSession();
+        }
+      }, 5000);
+    }
+
     try {
       await handleSignIn(
         storedData.method,
